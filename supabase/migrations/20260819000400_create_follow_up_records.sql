@@ -14,8 +14,8 @@ create table public.follow_up_records (
     references public.talents (id, user_id)
     on delete cascade,
   constraint follow_up_records_task_owner_fk
-    foreign key (task_id, user_id)
-    references public.tasks (id, user_id)
+    foreign key (task_id, talent_id, user_id)
+    references public.tasks (id, talent_id, user_id)
     on delete set null (task_id),
   constraint follow_up_records_method_valid check (
     method in ('wechat', 'phone', 'email', 'platform_message', 'other')
@@ -54,6 +54,7 @@ execute function public.set_updated_at();
 alter table public.follow_up_records enable row level security;
 
 revoke all on table public.follow_up_records from anon;
+revoke all on table public.follow_up_records from authenticated;
 grant select, insert, update on table public.follow_up_records to authenticated;
 
 create policy "Users can read their own follow-up records"

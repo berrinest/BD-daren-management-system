@@ -10,7 +10,7 @@ create table public.tasks (
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint tasks_id_user_id_unique unique (id, user_id),
+  constraint tasks_id_talent_id_user_id_unique unique (id, talent_id, user_id),
   constraint tasks_talent_owner_fk
     foreign key (talent_id, user_id)
     references public.talents (id, user_id)
@@ -56,6 +56,7 @@ execute function public.set_updated_at();
 alter table public.tasks enable row level security;
 
 revoke all on table public.tasks from anon;
+revoke all on table public.tasks from authenticated;
 grant select, insert, update on table public.tasks to authenticated;
 
 create policy "Users can read their own tasks"

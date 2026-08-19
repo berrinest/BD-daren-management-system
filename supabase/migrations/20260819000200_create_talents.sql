@@ -62,6 +62,7 @@ execute function public.set_updated_at();
 alter table public.talents enable row level security;
 
 revoke all on table public.talents from anon;
+revoke all on table public.talents from authenticated;
 grant select, insert, update on table public.talents to authenticated;
 
 create policy "Users can read their own talents"
