@@ -12,3 +12,5 @@ node_modules/
 *.tsbuildinfo
 supabase/.branches/
 supabase/.temp/
+# Local test credentials
+.env.test.local
