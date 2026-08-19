@@ -1,7 +1,8 @@
 import type { ReactNode } from "react";
 import { redirect } from "next/navigation";
 
-import { signOut } from "@/app/(auth)/login/actions";
+import { AppHeader } from "@/components/layout/app-header";
+import { AppSidebar } from "@/components/layout/app-sidebar";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -17,16 +18,12 @@ export default async function ProtectedLayout({
   }
 
   return (
-    <div>
-      <header className="flex items-center justify-between border-b border-[#e7ebe8] bg-white px-6 py-4">
-        <strong>星络 · BD达人管理</strong>
-        <form action={signOut}>
-          <button className="text-sm text-[#31594b]" type="submit">
-            退出登录
-          </button>
-        </form>
-      </header>
-      {children}
+    <div className="min-h-screen md:pl-60">
+      <AppSidebar />
+      <div className="min-h-screen">
+        <AppHeader email={data.claims.email as string | undefined} />
+        {children}
+      </div>
     </div>
   );
 }

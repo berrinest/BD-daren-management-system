@@ -1,39 +1,58 @@
-# 星络 · 达人 BD 跟进管理原型
+# 星络 · BD达人管理系统
 
-无需后端、无需安装依赖的纯 HTML + CSS + JavaScript CRM 原型。
+面向个人商务 BD 的达人拓展与跟进工作台。项目正在从 Phase 1 静态原型升级到 Phase 2 Web MVP。
 
-## 文件结构
+## 当前阶段
 
-```text
-BD达人管理系统/
-├── index.html    # 工作台、达人管理、项目汇总、添加达人、今日任务
-├── styles.css    # 第一版基础视觉样式
-├── v2.css        # 时间轴、项目汇总、标签和任务组件样式
-├── app.js        # 数据持久化、筛选、状态流转及时间轴逻辑
-└── README.md     # 运行说明
-```
+Phase 2.1 工程基础：
 
-## 运行
+- Next.js App Router
+- TypeScript
+- Tailwind CSS
+- Supabase SSR 客户端
+- Supabase Auth 单账号登录骨架
+- `profiles` 数据库 migration
+- 受保护的应用 Layout
+- 基础模块占位路由
 
-直接双击 `index.html`，或在项目目录启动静态服务器：
+达人库、任务、跟进记录和数据导入均未在本阶段实现。
+
+## 本地运行
+
+1. 安装依赖：
 
 ```powershell
-python -m http.server 8080
+pnpm install
 ```
 
-然后访问 `http://localhost:8080`。
+2. 复制环境变量模板：
 
-数据保存在浏览器 `localStorage` 中，刷新页面不会丢失。
+```powershell
+Copy-Item .env.example .env.local
+```
 
-## 当前功能
+3. 在 `.env.local` 中填写 Supabase 项目地址和 Publishable Key。
 
-- 今日任务：重新联系、报价跟进、合同跟进
-- 达人管理：搜索、状态、标签和优先级筛选
-- 跟进时间轴：记录日期、事件、结果、备注和下次跟进日期
-- 状态自动留痕：修改好友申请状态会自动写入时间轴
-- 项目汇总：已同意、未同意和已建立合作
-- 添加达人：支持标签和优先级
+4. 启动开发环境：
 
-## 正式系统升级方向
+```powershell
+pnpm dev
+```
 
-建议使用 Vue 3/React + Node.js API + PostgreSQL。数据库至少拆分为达人表、标签表、达人标签关联表、跟进记录表、任务表和项目表；再增加账号权限、批量导入、消息提醒与团队报表。
+访问 `http://localhost:3000`。
+
+## 验证命令
+
+```powershell
+pnpm lint
+pnpm typecheck
+pnpm build
+```
+
+## 数据库 migration
+
+Migration 文件位于 `supabase/migrations/`。Phase 2.1 只创建与 `auth.users` 一对一关联的 `profiles` 表，不创建任何业务表。
+
+## Phase 1 Demo
+
+现有 `index.html`、`app.js`、`styles.css` 和 `v2.css` 暂时保留在仓库根目录。只有在 Next.js Preview 部署验证完成后，才会归档到 `legacy-demo/`。
