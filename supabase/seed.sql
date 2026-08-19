@@ -1,0 +1,2 @@
+-- Phase 2.1 intentionally contains no business seed data.
+-- Create the single login account through Supabase Auth after linking the project.
