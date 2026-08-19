@@ -67,3 +67,10 @@ create trigger auth_user_created
 after insert on auth.users
 for each row
 execute function public.handle_new_user();
+
+insert into public.profiles (id, display_name)
+select
+  users.id,
+  coalesce(users.raw_user_meta_data ->> 'display_name', '')
+from auth.users as users
+on conflict (id) do nothing;
