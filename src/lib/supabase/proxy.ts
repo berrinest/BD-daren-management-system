@@ -2,6 +2,7 @@ import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
 import { getSupabasePublicEnv } from "@/lib/env";
+import type { Database } from "@/types/database";
 
 const PUBLIC_ROUTES = new Set(["/login"]);
 
@@ -9,7 +10,7 @@ export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
   const env = getSupabasePublicEnv();
 
-  const supabase = createServerClient(
+  const supabase = createServerClient<Database>(
     env.NEXT_PUBLIC_SUPABASE_URL,
     env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
     {
