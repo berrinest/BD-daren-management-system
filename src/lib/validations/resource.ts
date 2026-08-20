@@ -32,3 +32,14 @@ export const updateTalentResourcePrioritySchema = z.object({
   resource_id: z.uuid(),
   priority: z.enum(TALENT_PRIORITIES),
 });
+
+const resourceIds = z.array(z.uuid()).min(1, "请至少选择一条资源").max(100, "单次最多处理 100 条资源");
+
+export const bulkUpdateTalentResourcePrioritySchema = z.object({
+  resource_ids: resourceIds,
+  priority: z.enum(TALENT_PRIORITIES),
+});
+
+export const bulkConvertTalentResourcesSchema = z.object({
+  resource_ids: resourceIds,
+});
