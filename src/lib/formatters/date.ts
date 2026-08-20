@@ -48,3 +48,19 @@ export function getShanghaiDayRange(now = new Date()) {
   const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
   return { todayStart: todayStart.toISOString(), tomorrowStart: tomorrowStart.toISOString() };
 }
+
+export function getShanghaiSecondDayAtTen(value = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+  })
+    .formatToParts(value)
+    .reduce<Record<string, string>>((result, part) => {
+      if (part.type !== "literal") result[part.type] = part.value;
+      return result;
+    }, {});
+  const atTen = new Date(`${parts.year}-${parts.month}-${parts.day}T10:00:00+08:00`);
+  return new Date(atTen.getTime() + 2 * 24 * 60 * 60 * 1000);
+}

@@ -4,7 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
-import { bulkConvertTalentResourcesSchema, bulkUpdateTalentResourcePrioritySchema, convertTalentResourceSchema, createResourceContactRecordSchema, createTalentResourceSchema, updateTalentResourcePrioritySchema, updateTalentResourceProcessingStatusSchema } from "@/lib/validations";
+import { getShanghaiSecondDayAtTen } from "@/lib/formatters/date";
+import { bulkConvertTalentResourcesSchema, bulkDeleteTalentResourcesSchema, bulkUpdateTalentResourcePrioritySchema, convertTalentResourceSchema, createResourceContactRecordSchema, createTalentResourceSchema, updateTalentResourcePrioritySchema, updateTalentResourceProcessingStatusSchema } from "@/lib/validations";
 
 const RESOURCE_RESULT_TO_PROCESSING_STATUS = {
   friend_request: "waiting_acceptance",
@@ -13,15 +14,6 @@ const RESOURCE_RESULT_TO_PROCESSING_STATUS = {
   replied: "contacted",
   rejected: "paused",
   no_response: "attempted_add",
-} as const;
-
-const RESOURCE_RESULT_TO_NEXT_ACTION_DAYS = {
-  friend_request: 2,
-  reapplication: 2,
-  accepted: 1,
-  replied: 1,
-  no_response: 2,
-  other: 1,
 } as const;
 
 export async function createTalentResource(formData: FormData) {
@@ -174,6 +166,32 @@ export async function bulkConvertTalentResources(formData: FormData) {
   redirect(`/resources?notice=batch-converted&success=${success}&failed=${failed}`);
 }
 
+export async function bulkDeleteTalentResources(formData: FormData) {
+  const input = bulkDeleteTalentResourcesSchema.safeParse({ resource_ids: formData.getAll("resource_ids") });
+  if (!input.success) redirect(`/resources?error=${encodeURIComponent(input.error.issues[0]?.message ?? "批量删除信息无效")}`);
+
+  const supabase = await createClient();
+  const { data: claims } = await supabase.auth.getClaims();
+  const userId = claims?.claims?.sub;
+  if (!userId) redirect("/login");
+
+  const { data, error } = await supabase
+    .from("talent_resources")
+    .delete()
+    .in("id", input.data.resource_ids)
+    .eq("user_id", userId)
+    .eq("status", "new")
+    .select("id");
+  if (error) redirect("/resources?error=批量删除失败，请稍后重试");
+
+  const success = data?.length ?? 0;
+  const failed = input.data.resource_ids.length - success;
+  revalidatePath("/dashboard");
+  revalidatePath("/resources");
+  revalidatePath("/resources/process");
+  redirect(`/resources?notice=batch-deleted&success=${success}&failed=${failed}`);
+}
+
 export async function createResourceContactRecord(formData: FormData) {
   const continueProcessing = formData.get("continue_processing") === "1";
   const processingScope = formData.get("processing_scope") === "today" ? "today" : undefined;
@@ -239,12 +257,9 @@ export async function createResourceContactRecord(formData: FormData) {
   const nextProcessingStatus = RESOURCE_RESULT_TO_PROCESSING_STATUS[
     input.data.result as keyof typeof RESOURCE_RESULT_TO_PROCESSING_STATUS
   ];
-  const recommendedDays = RESOURCE_RESULT_TO_NEXT_ACTION_DAYS[
-    input.data.result as keyof typeof RESOURCE_RESULT_TO_NEXT_ACTION_DAYS
-  ];
-  const recommendedNextActionAt = recommendedDays === undefined
+  const recommendedNextActionAt = input.data.result === "rejected"
     ? null
-    : new Date(input.data.occurred_at.getTime() + recommendedDays * 24 * 60 * 60 * 1000).toISOString();
+    : getShanghaiSecondDayAtTen(input.data.occurred_at).toISOString();
   const nextActionAt = input.data.next_action_at === undefined
     ? recommendedNextActionAt
     : input.data.next_action_at?.toISOString() ?? null;

@@ -61,6 +61,10 @@ export const bulkConvertTalentResourcesSchema = z.object({
   resource_ids: resourceIds,
 });
 
+export const bulkDeleteTalentResourcesSchema = z.object({
+  resource_ids: resourceIds,
+});
+
 export const createResourceContactRecordSchema = z.object({
   resource_id: z.uuid(),
   occurred_at: z

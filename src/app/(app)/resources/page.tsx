@@ -33,17 +33,18 @@ export default async function ResourcesPage({ searchParams }: Props) {
     {params.notice === "created" ? <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">资源已录入。</p> : null}
     {params.notice === "batch-priority" ? <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">批量优先级处理完成：成功 {successCount} 条，未处理 {failedCount} 条。</p> : null}
     {params.notice === "batch-converted" ? <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">批量转换完成：成功 {successCount} 条，失败 {failedCount} 条。</p> : null}
-    <form action={createTalentResource} className="mt-6 grid gap-3 rounded-2xl border border-[#e7ebe8] bg-white p-5 shadow-sm md:grid-cols-4">
-      <input className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="nickname" placeholder="达人昵称 *" required />
+    {params.notice === "batch-deleted" ? <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">批量删除完成：成功 {successCount} 条，未删除 {failedCount} 条。</p> : null}
+    <form action={createTalentResource} autoComplete="off" className="mt-6 grid gap-3 rounded-2xl border border-[#e7ebe8] bg-white p-5 shadow-sm md:grid-cols-4">
+      <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="nickname" placeholder="达人昵称 *" required />
       <select className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="primary_platform">{TALENT_PLATFORMS.map(v => <option key={v} value={v}>{TALENT_PLATFORM_LABELS[v]}</option>)}</select>
-      <input className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="platform_account" placeholder="平台账号" />
-      <input className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="profile_url" placeholder="主页链接" type="url" />
-      <input className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="wechat" placeholder="微信号" />
-      <input className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" min="0" name="follower_count" placeholder="粉丝数量" type="number" />
+      <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="platform_account" placeholder="平台账号" />
+      <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="profile_url" placeholder="主页链接" type="url" />
+      <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="wechat" placeholder="微信号" />
+      <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" min="0" name="follower_count" placeholder="粉丝数量" type="number" />
       <select className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="category" required><option value="">选择赛道 *</option>{TALENT_CATEGORIES.map(v => <option key={v}>{v}</option>)}</select>
       <select className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="priority">{TALENT_PRIORITIES.map(v => <option key={v} value={v}>{TALENT_PRIORITY_LABELS[v]}</option>)}</select>
-      <input className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="source" placeholder="发现来源" />
-      <input className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="notes" placeholder="备注" />
+      <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="source" placeholder="发现来源" />
+      <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="notes" placeholder="备注" />
       <button className="rounded-lg bg-[#31594b] px-4 py-2.5 text-sm font-semibold text-white md:col-start-4" type="submit">快速录入</button>
     </form>
     <form className="mt-5 grid gap-3 rounded-2xl border border-[#e7ebe8] bg-white p-4 shadow-sm md:grid-cols-5">

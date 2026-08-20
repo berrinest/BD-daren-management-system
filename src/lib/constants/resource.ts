@@ -59,7 +59,7 @@ export const RESOURCE_CONTACT_RESULT_LABELS: Record<
   (typeof RESOURCE_CONTACT_RESULTS)[number],
   string
 > = {
-  friend_request: "首次申请好友",
+  friend_request: "首次申请",
   reapplication: "再次申请",
   accepted: "已通过",
   rejected: "已拒绝",
