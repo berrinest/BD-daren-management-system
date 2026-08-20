@@ -1,85 +1,101 @@
 import { redirect } from "next/navigation";
 
-import { createClient } from "@/lib/supabase/server";
 import { getShanghaiDayRange } from "@/lib/formatters/date";
+import { createClient } from "@/lib/supabase/server";
 
-const HIGH_PRIORITY_LIMIT = 8;
+type Timing = "overdue" | "today" | "new";
+
+export type DashboardWorkItem = {
+  actionType: string;
+  dueAt: string | null;
+  id: string;
+  kind: "talent_task" | "resource";
+  nickname: string;
+  platform: string;
+  priority: string;
+  resourceId?: string;
+  state: string;
+  talentId?: string;
+  taskId?: string;
+  timing: Timing;
+};
+
+const timingRank: Record<Timing, number> = { overdue: 0, today: 1, new: 2 };
+const priorityRank: Record<string, number> = { high: 0, normal: 1, paused: 2 };
+
+function compareWorkItems(left: DashboardWorkItem, right: DashboardWorkItem) {
+  const timingDifference = timingRank[left.timing] - timingRank[right.timing];
+  if (timingDifference !== 0) return timingDifference;
+  const priorityDifference = (priorityRank[left.priority] ?? 3) - (priorityRank[right.priority] ?? 3);
+  if (priorityDifference !== 0) return priorityDifference;
+  const leftTime = left.dueAt ? new Date(left.dueAt).getTime() : Number.MAX_SAFE_INTEGER;
+  const rightTime = right.dueAt ? new Date(right.dueAt).getTime() : Number.MAX_SAFE_INTEGER;
+  return leftTime - rightTime || left.nickname.localeCompare(right.nickname, "zh-CN");
+}
 
 export async function getDashboardData() {
   const supabase = await createClient();
   const { data: claimsData } = await supabase.auth.getClaims();
   const userId = claimsData?.claims?.sub;
-
   if (!userId) redirect("/login");
 
   const { todayStart, tomorrowStart } = getShanghaiDayRange();
-  const [dueTasksResult, pendingCountResult, highPriorityResult, resourcesResult] =
-    await Promise.all([
-      supabase
-        .from("tasks")
-        .select(
-          "id, talent_id, task_type, due_at, notes, talents!tasks_talent_owner_fk!inner(id, nickname, primary_platform, priority, stage, archived_at)",
-        )
-        .eq("user_id", userId)
-        .eq("status", "pending")
-        .is("talents.archived_at", null)
-        .lt("due_at", tomorrowStart)
-        .order("due_at", { ascending: true }),
-      supabase
-        .from("tasks")
-        .select(
-          "id, talents!tasks_talent_owner_fk!inner(archived_at)",
-          { count: "exact", head: true },
-        )
-        .eq("user_id", userId)
-        .eq("status", "pending")
-        .is("talents.archived_at", null),
-      supabase
-        .from("talents")
-        .select("id, nickname, primary_platform, priority, stage")
-        .eq("user_id", userId)
-        .eq("priority", "high")
-        .is("archived_at", null)
-        .order("updated_at", { ascending: false })
-        .limit(HIGH_PRIORITY_LIMIT),
-      supabase
-        .from("talent_resources")
-        .select(
-          "id, nickname, primary_platform, category, priority, processing_status, source, next_action_at",
-          { count: "exact" },
-        )
-        .eq("user_id", userId)
-        .eq("status", "new")
-        .neq("processing_status", "paused")
-        .lt("next_action_at", tomorrowStart)
-        .order("next_action_at", { ascending: true })
-        .limit(8),
-    ]);
+  const [tasksResult, dueResourcesResult, newResourcesResult] = await Promise.all([
+    supabase.from("tasks").select("id, talent_id, task_type, due_at, talents!tasks_talent_owner_fk!inner(id, nickname, primary_platform, priority, stage, archived_at)").eq("user_id", userId).eq("status", "pending").is("talents.archived_at", null).lt("due_at", tomorrowStart),
+    supabase.from("talent_resources").select("id, nickname, primary_platform, priority, processing_status, next_action_at").eq("user_id", userId).eq("status", "new").neq("processing_status", "paused").not("next_action_at", "is", null).lt("next_action_at", tomorrowStart),
+    supabase.from("talent_resources").select("id, nickname, primary_platform, priority, processing_status, discovered_at").eq("user_id", userId).eq("status", "new").eq("processing_status", "pending_add").is("next_action_at", null),
+  ]);
 
-  if (
-    dueTasksResult.error ||
-    pendingCountResult.error ||
-    highPriorityResult.error ||
-    resourcesResult.error
-  ) {
-    throw new Error("Dashboard data could not be loaded");
-  }
+  if (tasksResult.error || dueResourcesResult.error || newResourcesResult.error) throw new Error("Dashboard data could not be loaded");
 
-  const dueTasks = dueTasksResult.data ?? [];
-  const todayTaskCount = dueTasks.filter(
-    (task) => task.due_at >= todayStart,
-  ).length;
-  const overdueTaskCount = dueTasks.length - todayTaskCount;
+  const taskItems: DashboardWorkItem[] = (tasksResult.data ?? []).map((task) => ({
+    actionType: task.task_type,
+    dueAt: task.due_at,
+    id: `task:${task.id}`,
+    kind: "talent_task",
+    nickname: task.talents.nickname,
+    platform: task.talents.primary_platform,
+    priority: task.talents.priority,
+    state: task.talents.stage,
+    talentId: task.talent_id,
+    taskId: task.id,
+    timing: task.due_at < todayStart ? "overdue" : "today",
+  }));
 
+  const dueResourceItems: DashboardWorkItem[] = (dueResourcesResult.data ?? []).map((resource) => ({
+    actionType: "continue_resource",
+    dueAt: resource.next_action_at,
+    id: `resource:${resource.id}`,
+    kind: "resource",
+    nickname: resource.nickname,
+    platform: resource.primary_platform,
+    priority: resource.priority,
+    resourceId: resource.id,
+    state: resource.processing_status,
+    timing: resource.next_action_at && resource.next_action_at < todayStart ? "overdue" : "today",
+  }));
+
+  const newResourceItems: DashboardWorkItem[] = (newResourcesResult.data ?? []).map((resource) => ({
+    actionType: "first_resource",
+    dueAt: resource.discovered_at,
+    id: `resource:${resource.id}`,
+    kind: "resource",
+    nickname: resource.nickname,
+    platform: resource.primary_platform,
+    priority: resource.priority,
+    resourceId: resource.id,
+    state: resource.processing_status,
+    timing: "new",
+  }));
+
+  const workItems = [...taskItems, ...dueResourceItems, ...newResourceItems].sort(compareWorkItems);
   return {
-    dueTasks,
-    highPriorityTalents: highPriorityResult.data ?? [],
-    pendingResources: resourcesResult.data ?? [],
-    pendingResourceCount: resourcesResult.count ?? 0,
     summary: {
-      overdueTaskCount,
-      pendingTaskCount: pendingCountResult.count ?? 0,
-      todayTaskCount,
+      dueResourceCount: dueResourceItems.length,
+      newResourceCount: newResourceItems.length,
+      overdueCount: workItems.filter((item) => item.timing === "overdue").length,
+      todayTaskCount: taskItems.filter((item) => item.timing === "today").length,
     },
+    workItems,
   };
 }
