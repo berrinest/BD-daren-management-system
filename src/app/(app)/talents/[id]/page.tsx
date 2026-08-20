@@ -14,11 +14,14 @@ import { createClient } from "@/lib/supabase/server";
 type TalentDetailPageProps = {
   params: Promise<{ id: string }>;
   searchParams: Promise<{
+    completedTask?: string;
     followUpError?: string;
     followUpNotice?: string;
+    nextTask?: string;
     task?: string;
     taskError?: string;
     taskNotice?: string;
+    updatedStage?: string;
   }>;
 };
 
@@ -125,7 +128,17 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
         </div>
 
         {taskMessage.followUpError ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{taskMessage.followUpError}</p> : null}
-        {taskMessage.followUpNotice === "created" ? <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">跟进记录与下一步处理成功。</p> : null}
+        {taskMessage.followUpNotice === "created" ? (
+          <div className="mt-4 rounded-lg bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">
+            <p className="font-semibold">本次跟进处理成功</p>
+            <ul className="mt-2 grid gap-1 text-xs">
+              <li>✓ 跟进记录已保存</li>
+              {taskMessage.completedTask === "1" ? <li>✓ 当前任务已完成</li> : null}
+              {taskMessage.nextTask === "1" ? <li>✓ 下一任务已创建</li> : null}
+              {taskMessage.updatedStage === "1" ? <li>✓ 达人阶段已更新</li> : null}
+            </ul>
+          </div>
+        ) : null}
 
         <div className="mt-5" id="follow-up-form">
           <CreateFollowUpForm

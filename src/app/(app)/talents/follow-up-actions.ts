@@ -66,5 +66,11 @@ export async function recordFollowUpAndScheduleNext(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/talents");
   revalidatePath(`/talents/${talentId}`);
-  redirect(`/talents/${talentId}?followUpNotice=created`);
+  const notice = new URLSearchParams({ followUpNotice: "created" });
+  if (input.data.complete_current_task && input.data.task_id) {
+    notice.set("completedTask", "1");
+  }
+  if (input.data.next_task_due_at) notice.set("nextTask", "1");
+  if (input.data.next_stage) notice.set("updatedStage", "1");
+  redirect(`/talents/${talentId}?${notice}`);
 }
