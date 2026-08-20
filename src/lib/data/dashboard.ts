@@ -36,7 +36,7 @@ export async function getDashboardData() {
   if (!userId) redirect("/login");
 
   const { todayStart, tomorrowStart } = getShanghaiDayRange();
-  const [dueTasksResult, pendingCountResult, highPriorityResult] =
+  const [dueTasksResult, pendingCountResult, highPriorityResult, resourcesResult] =
     await Promise.all([
       supabase
         .from("tasks")
@@ -65,12 +65,24 @@ export async function getDashboardData() {
         .is("archived_at", null)
         .order("updated_at", { ascending: false })
         .limit(HIGH_PRIORITY_LIMIT),
+      supabase
+        .from("talent_resources")
+        .select(
+          "id, nickname, primary_platform, category, priority, source, discovered_at",
+          { count: "exact" },
+        )
+        .eq("user_id", userId)
+        .eq("status", "new")
+        .order("priority", { ascending: true })
+        .order("discovered_at", { ascending: false })
+        .limit(8),
     ]);
 
   if (
     dueTasksResult.error ||
     pendingCountResult.error ||
-    highPriorityResult.error
+    highPriorityResult.error ||
+    resourcesResult.error
   ) {
     throw new Error("Dashboard data could not be loaded");
   }
@@ -84,6 +96,8 @@ export async function getDashboardData() {
   return {
     dueTasks,
     highPriorityTalents: highPriorityResult.data ?? [],
+    pendingResources: resourcesResult.data ?? [],
+    pendingResourceCount: resourcesResult.count ?? 0,
     summary: {
       overdueTaskCount,
       pendingTaskCount: pendingCountResult.count ?? 0,

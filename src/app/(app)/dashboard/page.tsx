@@ -10,7 +10,7 @@ import { getDashboardData } from "@/lib/data/dashboard";
 import { formatDateTime } from "@/lib/formatters/date";
 
 export default async function DashboardPage() {
-  const { dueTasks, highPriorityTalents, summary } = await getDashboardData();
+  const { dueTasks, highPriorityTalents, pendingResourceCount, pendingResources, summary } = await getDashboardData();
   const summaryCards = [
     { label: "今日待处理", value: summary.todayTaskCount, hint: "今天到期的任务", style: "bg-[#eaf3ef] text-[#31594b]" },
     { label: "逾期任务", value: summary.overdueTaskCount, hint: "需要优先处理", style: "bg-red-50 text-red-700" },
@@ -59,6 +59,30 @@ export default async function DashboardPage() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+        </section>
+
+        <section className="mt-6 overflow-hidden rounded-2xl border border-[#e7ebe8] bg-white shadow-sm">
+          <header className="flex items-center justify-between border-b border-[#edf0ee] px-5 py-4">
+            <div>
+              <h2 className="font-semibold text-[#35443e]">今日待处理资源</h2>
+              <p className="mt-1 text-xs text-slate-400">{pendingResourceCount} 位未转换资源，优先处理高价值达人</p>
+            </div>
+            <Link className="text-sm font-medium text-[#31594b] hover:underline" href="/resources">查看资源池</Link>
+          </header>
+          {pendingResources.length === 0 ? (
+            <div className="px-6 py-10 text-center"><p className="font-medium text-[#35443e]">没有待处理资源</p><p className="mt-2 text-sm text-slate-400">今天发现的新达人可以先录入资源池。</p></div>
+          ) : (
+            <div className="grid gap-3 p-5 sm:grid-cols-2 lg:grid-cols-4">
+              {pendingResources.map((resource) => (
+                <article className="rounded-xl border border-[#e4e9e6] p-4" key={resource.id}>
+                  <div className="flex items-start justify-between gap-2"><h3 className="font-semibold text-[#35443e]">{resource.nickname}</h3><span className="rounded-full bg-[#eef4f1] px-2 py-1 text-[11px] text-[#48685b]">{getTalentPriorityLabel(resource.priority)}</span></div>
+                  <p className="mt-2 text-xs text-slate-500">{getTalentPlatformLabel(resource.primary_platform)} · {resource.category}</p>
+                  <p className="mt-2 truncate text-xs text-slate-400">来源：{resource.source || "未填写"}</p>
+                  <Link className="mt-4 inline-flex rounded-lg bg-[#31594b] px-3 py-2 text-xs font-semibold text-white hover:bg-[#284a3e]" href={`/resources/${resource.id}`}>进入处理</Link>
+                </article>
+              ))}
             </div>
           )}
         </section>
