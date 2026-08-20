@@ -383,10 +383,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      convert_talent_resource: {
-        Args: { p_resource_id: string }
-        Returns: string
-      }
       complete_task_and_record_follow_up: {
         Args: { p_talent_id: string; p_task_id: string }
         Returns: {
@@ -394,19 +390,9 @@ export type Database = {
           follow_up_record_id: string
         }[]
       }
-      record_resource_contact_and_maybe_convert: {
-        Args: {
-          p_method: string
-          p_next_action_at?: string
-          p_notes?: string
-          p_occurred_at: string
-          p_resource_id: string
-          p_result: string
-        }
-        Returns: {
-          converted_talent_id: string | null
-          resource_contact_record_id: string
-        }[]
+      convert_talent_resource: {
+        Args: { p_resource_id: string }
+        Returns: string
       }
       record_follow_up_and_schedule_next: {
         Args: {
@@ -425,6 +411,20 @@ export type Database = {
           completed_task_id: string
           follow_up_record_id: string
           next_task_id: string
+        }[]
+      }
+      record_resource_contact_and_maybe_convert: {
+        Args: {
+          p_method: string
+          p_next_action_at?: string
+          p_notes?: string
+          p_occurred_at: string
+          p_resource_id: string
+          p_result: string
+        }
+        Returns: {
+          converted_talent_id: string
+          resource_contact_record_id: string
         }[]
       }
     }
