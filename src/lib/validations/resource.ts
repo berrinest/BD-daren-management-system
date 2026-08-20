@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { RESOURCE_CONTACT_METHODS, RESOURCE_CONTACT_RESULTS, RESOURCE_PROCESSING_STATUSES, TALENT_CATEGORIES, TALENT_PLATFORMS, TALENT_PRIORITIES } from "@/lib/constants";
+import { RESOURCE_CONTACT_METHODS, RESOURCE_CONTACT_RESULTS, RESOURCE_PROCESSING_STATUSES, RESOURCE_SOURCE_TYPES, TALENT_CATEGORIES, TALENT_PLATFORMS, TALENT_PRIORITIES } from "@/lib/constants";
 
 const optionalText = (max: number) => z.preprocess(
   (value) => typeof value === "string" && value.trim() === "" ? null : value,
@@ -33,8 +33,17 @@ export const createTalentResourceSchema = z.object({
   ),
   category: z.enum(TALENT_CATEGORIES),
   priority: z.enum(TALENT_PRIORITIES),
-  source: optionalText(200),
+  source: optionalText(2000),
   notes: optionalText(2000),
+});
+
+export const resourceSourceInputSchema = z.object({
+  source_type: z.enum(RESOURCE_SOURCE_TYPES),
+  source_detail: optionalText(300),
+  source_url: z.preprocess(
+    (value) => typeof value === "string" && value.trim() === "" ? null : value,
+    z.url("请输入有效的来源页面链接").max(1500).nullable(),
+  ),
 });
 
 export const batchCreateTalentResourcesSchema = z

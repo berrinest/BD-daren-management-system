@@ -9,6 +9,26 @@ export const RESOURCE_PROCESSING_STATUSES = [
 export type ResourceProcessingStatus =
   (typeof RESOURCE_PROCESSING_STATUSES)[number];
 
+export const RESOURCE_SOURCE_TYPES = [
+  "platform_search",
+  "platform_recommendation",
+  "creator_list",
+  "referral",
+  "agency",
+  "manual",
+  "other",
+] as const;
+
+export const RESOURCE_SOURCE_TYPE_LABELS: Record<(typeof RESOURCE_SOURCE_TYPES)[number], string> = {
+  platform_search: "平台搜索",
+  platform_recommendation: "平台推荐",
+  creator_list: "达人榜单",
+  referral: "他人推荐",
+  agency: "机构资源",
+  manual: "手动整理",
+  other: "其他",
+};
+
 export const RESOURCE_PROCESSING_STATUS_LABELS: Record<
   ResourceProcessingStatus,
   string

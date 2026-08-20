@@ -1,4 +1,5 @@
 import { TALENT_CATEGORIES, TALENT_PLATFORMS, TALENT_PLATFORM_LABELS, TALENT_PRIORITIES, TALENT_PRIORITY_LABELS } from "@/lib/constants";
+import { normalizeProfileUrl } from "@/lib/resources/identity";
 
 export type BatchResourceRow = {
   category: string;
@@ -87,7 +88,7 @@ export function parseBatchResources(text: string): ParsedBatchRow[] {
         platform_account: platformAccount || null,
         primary_platform: primaryPlatform,
         priority,
-        profile_url: profileUrl || null,
+        profile_url: profileUrl ? normalizeProfileUrl(profileUrl) : null,
         source: source || null,
         wechat: wechat || null,
       },

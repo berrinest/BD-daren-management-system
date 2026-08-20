@@ -5,7 +5,9 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { getShanghaiSecondDayAtTen } from "@/lib/formatters/date";
-import { batchCreateTalentResourcesSchema, bulkConvertTalentResourcesSchema, bulkDeleteTalentResourcesSchema, bulkUpdateTalentResourcePrioritySchema, convertTalentResourceSchema, createResourceContactRecordSchema, createTalentResourceSchema, updateTalentResourcePrioritySchema, updateTalentResourceProcessingStatusSchema } from "@/lib/validations";
+import { RESOURCE_SOURCE_TYPE_LABELS } from "@/lib/constants";
+import { normalizeProfileUrl, resourceIdentityKeys, type ResourceIdentity } from "@/lib/resources/identity";
+import { batchCreateTalentResourcesSchema, bulkConvertTalentResourcesSchema, bulkDeleteTalentResourcesSchema, bulkUpdateTalentResourcePrioritySchema, convertTalentResourceSchema, createResourceContactRecordSchema, createTalentResourceSchema, resourceSourceInputSchema, updateTalentResourcePrioritySchema, updateTalentResourceProcessingStatusSchema } from "@/lib/validations";
 
 export type BatchCreateResourcesState = {
   error?: string;
@@ -13,19 +15,23 @@ export type BatchCreateResourcesState = {
   skipped?: number;
 };
 
-function resourceIdentityKeys(resource: {
-  nickname: string;
-  platform_account: string | null;
-  primary_platform: string;
-  profile_url: string | null;
-  wechat: string | null;
-}) {
-  const normalize = (value: string) => value.trim().toLocaleLowerCase();
+async function getKnownIdentityKeys(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  resources: ResourceIdentity[],
+) {
+  const platforms = [...new Set(resources.map((resource) => resource.primary_platform))];
+  const columns = "nickname,primary_platform,platform_account,profile_url,wechat";
+  const [resourceResult, talentResult] = await Promise.all([
+    supabase.from("talent_resources").select(columns).eq("user_id", userId).in("primary_platform", platforms),
+    supabase.from("talents").select(columns).eq("user_id", userId).in("primary_platform", platforms),
+  ]);
+  if (resourceResult.error || talentResult.error) return null;
+
   const keys = new Set<string>();
-  if (resource.platform_account) keys.add(`account:${resource.primary_platform}:${normalize(resource.platform_account)}`);
-  if (resource.profile_url) keys.add(`url:${normalize(resource.profile_url)}`);
-  if (resource.wechat) keys.add(`wechat:${normalize(resource.wechat)}`);
-  keys.add(`name:${resource.primary_platform}:${normalize(resource.nickname)}`);
+  for (const item of [...(resourceResult.data ?? []), ...(talentResult.data ?? [])]) {
+    for (const key of resourceIdentityKeys(item)) keys.add(key);
+  }
   return keys;
 }
 
@@ -50,31 +56,14 @@ export async function batchCreateTalentResources(
   const userId = claims?.claims?.sub;
   if (!userId) redirect("/login");
 
-  const nicknames = [...new Set(input.data.map((item) => item.nickname))];
-  const accounts = [...new Set(input.data.flatMap((item) => item.platform_account ? [item.platform_account] : []))];
-  const wechats = [...new Set(input.data.flatMap((item) => item.wechat ? [item.wechat] : []))];
-  const urls = [...new Set(input.data.flatMap((item) => item.profile_url ? [item.profile_url] : []))];
-  const columns = "nickname,primary_platform,platform_account,profile_url,wechat";
-  const queries = [
-    supabase.from("talent_resources").select(columns).eq("user_id", userId).in("nickname", nicknames),
-    ...(accounts.length ? [supabase.from("talent_resources").select(columns).eq("user_id", userId).in("platform_account", accounts)] : []),
-    ...(wechats.length ? [supabase.from("talent_resources").select(columns).eq("user_id", userId).in("wechat", wechats)] : []),
-    ...(urls.length ? [supabase.from("talent_resources").select(columns).eq("user_id", userId).in("profile_url", urls)] : []),
-  ];
-  const queryResults = await Promise.all(queries);
-  if (queryResults.some((result) => result.error)) return { error: "重复检测失败，请稍后重试" };
-
-  const knownKeys = new Set<string>();
-  for (const result of queryResults) {
-    for (const resource of result.data ?? []) {
-      for (const key of resourceIdentityKeys(resource)) knownKeys.add(key);
-    }
-  }
+  const normalizedResources = input.data.map((resource) => ({ ...resource, profile_url: normalizeProfileUrl(resource.profile_url) }));
+  const knownKeys = await getKnownIdentityKeys(supabase, userId, normalizedResources);
+  if (!knownKeys) return { error: "重复检测失败，请稍后重试" };
 
   const uniqueResources = [];
   let skipped = 0;
-  for (const resource of input.data) {
-    const keys = resourceIdentityKeys(resource);
+  for (const resource of normalizedResources) {
+    const keys = resourceIdentityKeys(resource, Boolean(resource.profile_url));
     if ([...keys].some((key) => knownKeys.has(key))) {
       skipped += 1;
       continue;
@@ -94,13 +83,35 @@ export async function batchCreateTalentResources(
 }
 
 export async function createTalentResource(formData: FormData) {
-  const input = createTalentResourceSchema.safeParse(Object.fromEntries(formData));
+  const sourceInput = resourceSourceInputSchema.safeParse({
+    source_type: formData.get("source_type"),
+    source_detail: formData.get("source_detail"),
+    source_url: formData.get("source_url"),
+  });
+  if (!sourceInput.success) redirect(`/resources?error=${encodeURIComponent(sourceInput.error.issues[0]?.message ?? "请检查来源信息")}`);
+  const source = [
+    RESOURCE_SOURCE_TYPE_LABELS[sourceInput.data.source_type],
+    sourceInput.data.source_detail,
+    sourceInput.data.source_url,
+  ].filter(Boolean).join(" · ");
+  const input = createTalentResourceSchema.safeParse({
+    ...Object.fromEntries(formData),
+    profile_url: normalizeProfileUrl(String(formData.get("profile_url") ?? "")),
+    source,
+  });
   if (!input.success) redirect(`/resources?error=${encodeURIComponent(input.error.issues[0]?.message ?? "请检查资源信息")}`);
 
   const supabase = await createClient();
   const { data } = await supabase.auth.getClaims();
   const userId = data?.claims?.sub;
   if (!userId) redirect("/login");
+
+  const knownKeys = await getKnownIdentityKeys(supabase, userId, [input.data]);
+  if (!knownKeys) redirect("/resources?error=重复检测失败，请稍后重试");
+  const inputKeys = resourceIdentityKeys(input.data, Boolean(input.data.profile_url));
+  if ([...inputKeys].some((key) => knownKeys.has(key))) {
+    redirect("/resources?error=该达人已存在于资源池或达人库，已阻止重复录入");
+  }
 
   const { error } = await supabase.from("talent_resources").insert({ ...input.data, user_id: userId });
   if (error) redirect("/resources?error=资源录入失败，请稍后重试");
