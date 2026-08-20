@@ -20,6 +20,7 @@ export async function recordFollowUpAndScheduleNext(formData: FormData) {
     next_task_due_at: formData.get("next_task_due_at"),
     next_task_type: formData.get("next_task_type"),
     next_task_notes: formData.get("next_task_notes"),
+    return_to: formData.get("return_to"),
   });
 
   if (!input.success) {
@@ -58,8 +59,14 @@ export async function recordFollowUpAndScheduleNext(formData: FormData) {
   });
 
   if (error) {
+    const errorParams = new URLSearchParams({
+      followUpError: "跟进处理失败，请检查当前任务状态后重试",
+    });
+    if (input.data.return_to === "dashboard") {
+      errorParams.set("returnTo", "dashboard");
+    }
     redirect(
-      `/talents/${talentId}?${new URLSearchParams({ followUpError: "跟进处理失败，请检查当前任务状态后重试" })}`,
+      `/talents/${talentId}?${errorParams}`,
     );
   }
 
@@ -72,5 +79,8 @@ export async function recordFollowUpAndScheduleNext(formData: FormData) {
   }
   if (input.data.next_task_due_at) notice.set("nextTask", "1");
   if (input.data.next_stage) notice.set("updatedStage", "1");
+  if (input.data.return_to === "dashboard") {
+    notice.set("returnTo", "dashboard");
+  }
   redirect(`/talents/${talentId}?${notice}`);
 }

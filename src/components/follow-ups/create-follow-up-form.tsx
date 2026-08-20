@@ -19,6 +19,7 @@ import { formatDateTime, toShanghaiDateTimeLocalValue } from "@/lib/formatters/d
 type CreateFollowUpFormProps = {
   autoCompleteTask?: boolean;
   initialTaskId?: string;
+  returnTo?: "dashboard";
   talentId: string;
   pendingTasks: Array<{
     id: string;
@@ -48,6 +49,7 @@ function SubmitButton() {
 export function CreateFollowUpForm({
   autoCompleteTask = false,
   initialTaskId,
+  returnTo,
   talentId,
   pendingTasks,
 }: CreateFollowUpFormProps) {
@@ -59,6 +61,7 @@ export function CreateFollowUpForm({
       className="grid gap-4 rounded-xl border border-[#e4e9e6] bg-[#f8faf8] p-4"
     >
       <input name="talent_id" type="hidden" value={talentId} />
+      {returnTo ? <input name="return_to" type="hidden" value={returnTo} /> : null}
       <section className={sectionClassName}>
         <h3 className="text-sm font-semibold text-[#35443e]">A. 本次沟通</h3>
         <div className="mt-4 grid gap-4 md:grid-cols-2">

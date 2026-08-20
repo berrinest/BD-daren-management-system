@@ -55,6 +55,10 @@ export const recordFollowUpAndScheduleNextSchema = createFollowUpSchema
     next_task_due_at: optionalDateTime,
     next_task_type: z.enum(TASK_TYPES),
     next_task_notes: optionalNullableText,
+    return_to: z.preprocess(
+      (value) => (value === "" || value === null ? null : value),
+      z.literal("dashboard").nullable().optional(),
+    ),
   })
   .superRefine((value, context) => {
     if (value.complete_current_task && !value.task_id) {

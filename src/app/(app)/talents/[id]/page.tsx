@@ -18,6 +18,7 @@ type TalentDetailPageProps = {
     followUpError?: string;
     followUpNotice?: string;
     nextTask?: string;
+    returnTo?: string;
     task?: string;
     taskError?: string;
     taskNotice?: string;
@@ -44,6 +45,7 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
   if (error || !talent) notFound();
 
   const requestedTaskId = taskMessage.task;
+  const returnTo = taskMessage.returnTo === "dashboard" ? "dashboard" : undefined;
   const parsedTaskId = z.uuid().safeParse(requestedTaskId);
   let focusedTask: {
     due_at: string;
@@ -137,6 +139,11 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
               {taskMessage.nextTask === "1" ? <li>✓ 下一任务已创建</li> : null}
               {taskMessage.updatedStage === "1" ? <li>✓ 达人阶段已更新</li> : null}
             </ul>
+            {returnTo === "dashboard" ? (
+              <Link className="mt-3 inline-flex rounded-lg bg-emerald-700 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-800" href="/dashboard">
+                返回今日工作台
+              </Link>
+            ) : null}
           </div>
         ) : null}
 
@@ -145,6 +152,7 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
             autoCompleteTask={Boolean(focusedTask)}
             initialTaskId={focusedTask?.id}
             pendingTasks={pendingTasks ?? []}
+            returnTo={returnTo}
             talentId={talent.id}
           />
         </div>

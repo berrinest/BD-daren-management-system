@@ -54,7 +54,7 @@ export default async function DashboardPage() {
                       <td className="px-4 py-4 text-slate-600">{getTalentStageLabel(task.talents.stage)}</td>
                       <td className="px-4 py-4 text-slate-600">{getTaskTypeLabel(task.task_type)}</td>
                       <td className="px-4 py-4 text-slate-600">{formatDateTime(task.due_at)}</td>
-                      <td className="px-5 py-4 text-right"><Link className="inline-flex rounded-lg bg-[#31594b] px-3 py-2 text-xs font-semibold text-white hover:bg-[#284a3e]" href={`/talents/${task.talent_id}?task=${task.id}`}>去处理</Link></td>
+                      <td className="px-5 py-4 text-right"><Link className="inline-flex rounded-lg bg-[#31594b] px-3 py-2 text-xs font-semibold text-white hover:bg-[#284a3e]" href={`/talents/${task.talent_id}?task=${task.id}&returnTo=dashboard`}>去处理</Link></td>
                     </tr>
                   ))}
                 </tbody>
