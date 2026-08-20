@@ -49,9 +49,9 @@ export const RESOURCE_CONTACT_RESULTS = [
   "friend_request",
   "reapplication",
   "accepted",
-  "rejected",
   "replied",
   "no_response",
+  "rejected",
   "other",
 ] as const;
 

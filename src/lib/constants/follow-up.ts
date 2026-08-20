@@ -21,14 +21,14 @@ export const FOLLOW_UP_RESULTS = [
   "first_application",
   "reapplication",
   "accepted",
-  "rejected",
   "replied",
+  "no_response",
   "interested",
   "quote_sent",
   "quote_accepted",
   "quote_rejected",
   "cooperation",
-  "no_response",
+  "rejected",
   "other",
 ] as const;
 

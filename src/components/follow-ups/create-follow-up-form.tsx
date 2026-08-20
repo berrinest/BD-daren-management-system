@@ -32,6 +32,21 @@ type CreateFollowUpFormProps = {
 const sectionClassName =
   "rounded-xl border border-[#e4e9e6] bg-white p-4 md:p-5";
 
+const COMMON_RESULTS = ["first_application", "reapplication", "accepted", "replied", "no_response", "interested"] as const;
+const OTHER_RESULTS = FOLLOW_UP_RESULTS.filter((value) => !COMMON_RESULTS.includes(value as (typeof COMMON_RESULTS)[number]));
+const RECOMMENDED_STAGES: Partial<Record<(typeof FOLLOW_UP_RESULTS)[number], (typeof TALENT_STAGES)[number]>> = {
+  first_application: "applied",
+  reapplication: "applied",
+  accepted: "connected",
+  replied: "replied",
+  interested: "interested",
+  quote_sent: "quoting",
+  quote_accepted: "confirmed",
+  quote_rejected: "rejected",
+  cooperation: "confirmed",
+  rejected: "rejected",
+};
+
 function SubmitButton() {
   const { pending } = useFormStatus();
 
@@ -54,6 +69,13 @@ export function CreateFollowUpForm({
   pendingTasks,
 }: CreateFollowUpFormProps) {
   const [nextStepOpen, setNextStepOpen] = useState(false);
+  const [result, setResult] = useState<(typeof FOLLOW_UP_RESULTS)[number]>("first_application");
+  const [nextStage, setNextStage] = useState<"" | (typeof TALENT_STAGES)[number]>(RECOMMENDED_STAGES.first_application ?? "");
+
+  function chooseResult(value: (typeof FOLLOW_UP_RESULTS)[number]) {
+    setResult(value);
+    setNextStage(RECOMMENDED_STAGES[value] ?? "");
+  }
 
   return (
     <form
@@ -67,7 +89,7 @@ export function CreateFollowUpForm({
         <div className="mt-4 grid gap-4 md:grid-cols-2">
           <label className="grid gap-2 text-sm font-medium text-[#35443e]">沟通时间<input className="rounded-lg border border-[#dfe5e1] px-3 py-2.5" defaultValue={toShanghaiDateTimeLocalValue()} name="occurred_at" required type="datetime-local" /></label>
           <label className="grid gap-2 text-sm font-medium text-[#35443e]">联系方式<select className="rounded-lg border border-[#dfe5e1] px-3 py-2.5" defaultValue="wechat" name="method">{FOLLOW_UP_METHODS.map((value) => <option key={value} value={value}>{FOLLOW_UP_METHOD_LABELS[value]}</option>)}</select></label>
-          <label className="grid gap-2 text-sm font-medium text-[#35443e] md:col-span-2">沟通结果<select className="rounded-lg border border-[#dfe5e1] px-3 py-2.5" defaultValue="first_application" name="result">{FOLLOW_UP_RESULTS.map((value) => <option key={value} value={value}>{FOLLOW_UP_RESULT_LABELS[value]}</option>)}</select></label>
+          <fieldset className="md:col-span-2"><legend className="text-sm font-medium text-[#35443e]">沟通结果</legend><div className="mt-2 flex flex-wrap gap-2">{COMMON_RESULTS.map((value) => <label className={`cursor-pointer rounded-lg border px-3 py-2 text-sm font-medium transition ${result === value ? "border-[#31594b] bg-[#31594b] text-white" : "border-[#d6dfda] bg-white text-[#31594b] hover:bg-[#f4f6f4]"}`} key={value}><input checked={result === value} className="sr-only" name="result" onChange={() => chooseResult(value)} type="radio" value={value} />{FOLLOW_UP_RESULT_LABELS[value]}</label>)}</div><details className="mt-3"><summary className="cursor-pointer text-xs font-medium text-[#557064]">更多合作结果</summary><div className="mt-2 flex flex-wrap gap-2">{OTHER_RESULTS.map((value) => <label className={`cursor-pointer rounded-lg border px-3 py-2 text-sm font-medium transition ${result === value ? "border-[#31594b] bg-[#31594b] text-white" : "border-[#d6dfda] bg-white text-[#31594b] hover:bg-[#f4f6f4]"}`} key={value}><input checked={result === value} className="sr-only" name="result" onChange={() => chooseResult(value)} type="radio" value={value} />{FOLLOW_UP_RESULT_LABELS[value]}</label>)}</div></details>{nextStage ? <p className="mt-3 text-xs font-medium text-[#668074]">保存后同步阶段：{TALENT_STAGE_LABELS[nextStage]}</p> : null}</fieldset>
           <label className="grid gap-2 text-sm font-medium text-[#35443e] md:col-span-2">沟通备注<textarea className="min-h-24 resize-y rounded-lg border border-[#dfe5e1] px-3 py-2.5" maxLength={2000} name="notes" placeholder="记录对方回复、合作意向或其他关键信息" /></label>
         </div>
       </section>
@@ -88,7 +110,7 @@ export function CreateFollowUpForm({
         <div className={`${nextStepOpen ? "grid" : "hidden"} mt-4 gap-4 md:grid-cols-2`}>
             <label className="grid gap-2 text-sm font-medium text-[#35443e]">下一次跟进时间<input className="rounded-lg border border-[#dfe5e1] px-3 py-2.5" name="next_task_due_at" type="datetime-local" /></label>
             <label className="grid gap-2 text-sm font-medium text-[#35443e]">下一任务类型<select className="rounded-lg border border-[#dfe5e1] px-3 py-2.5" defaultValue="follow_up" name="next_task_type">{TASK_TYPES.map((value) => <option key={value} value={value}>{TASK_TYPE_LABELS[value]}</option>)}</select></label>
-            <label className="grid gap-2 text-sm font-medium text-[#35443e]">下一阶段<select className="rounded-lg border border-[#dfe5e1] px-3 py-2.5" defaultValue="" name="next_stage"><option value="">保持当前阶段</option>{TALENT_STAGES.map((value) => <option key={value} value={value}>{TALENT_STAGE_LABELS[value]}</option>)}</select></label>
+            <label className="grid gap-2 text-sm font-medium text-[#35443e]">下一阶段<select className="rounded-lg border border-[#dfe5e1] px-3 py-2.5" name="next_stage" onChange={(event) => setNextStage(event.target.value as "" | (typeof TALENT_STAGES)[number])} value={nextStage}><option value="">保持当前阶段</option>{TALENT_STAGES.map((value) => <option key={value} value={value}>{TALENT_STAGE_LABELS[value]}</option>)}</select></label>
             <label className="grid gap-2 text-sm font-medium text-[#35443e]">下一任务备注<input className="rounded-lg border border-[#dfe5e1] px-3 py-2.5" maxLength={2000} name="next_task_notes" placeholder="例如：再次确认合作意向" /></label>
         </div>
       </section>

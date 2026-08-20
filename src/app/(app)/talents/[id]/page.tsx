@@ -7,6 +7,7 @@ import { FollowUpTimeline } from "@/components/follow-ups/follow-up-timeline";
 import { ArchiveTalentForm } from "@/components/talents/archive-talent-form";
 import { CreateTaskForm } from "@/components/tasks/create-task-form";
 import { TaskActions } from "@/components/tasks/task-actions";
+import { CopyButton } from "@/components/ui/copy-button";
 import { getTalentPlatformLabel, getTalentPriorityLabel, getTalentStageLabel, getTaskTypeLabel } from "@/lib/constants";
 import { formatDateTime } from "@/lib/formatters/date";
 import { createClient } from "@/lib/supabase/server";
@@ -78,12 +79,12 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
   }
 
   const details = [
-    ["主要平台", getTalentPlatformLabel(talent.primary_platform)],
-    ["平台账号", talent.platform_account || "未填写"],
-    ["微信号", talent.wechat || "未填写"],
-    ["粉丝数量", talent.follower_count?.toLocaleString("zh-CN") ?? "未填写"],
-    ["优先级", getTalentPriorityLabel(talent.priority)],
-    ["当前阶段", getTalentStageLabel(talent.stage)],
+    { label: "主要平台", value: getTalentPlatformLabel(talent.primary_platform) },
+    { copyValue: talent.platform_account, label: "平台账号", value: talent.platform_account || "未填写" },
+    { copyValue: talent.wechat, label: "微信号", value: talent.wechat || "未填写" },
+    { label: "粉丝数量", value: talent.follower_count?.toLocaleString("zh-CN") ?? "未填写" },
+    { label: "优先级", value: getTalentPriorityLabel(talent.priority) },
+    { label: "当前阶段", value: getTalentStageLabel(talent.stage) },
   ];
 
   return (
@@ -113,7 +114,7 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
           <div>
             <p className="text-xs font-semibold tracking-[0.18em] text-[#668074]">TALENT PROFILE</p>
-            <h1 className="mt-2 text-2xl font-semibold text-[#26332e]">{talent.nickname}</h1>
+            <div className="mt-2 flex items-center gap-2"><h1 className="text-2xl font-semibold text-[#26332e]">{talent.nickname}</h1><CopyButton label="复制昵称" value={talent.nickname} /></div>
             <p className="mt-2 text-sm text-slate-500">
               赛道类别：<span className="font-medium text-[#31594b]">{talent.tags[0] || "未设置"}</span>
             </p>
@@ -125,8 +126,8 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
             <ArchiveTalentForm talentId={talent.id} />
           </div>
         </div>
-        <dl className="mt-7 grid gap-4 border-t border-[#edf0ee] pt-6 sm:grid-cols-2 lg:grid-cols-3">{details.map(([label, value]) => <div className="rounded-xl bg-[#f8faf8] p-4" key={label}><dt className="text-xs font-medium text-slate-400">{label}</dt><dd className="mt-1.5 text-sm font-medium text-[#35443e]">{value}</dd></div>)}</dl>
-        {talent.profile_url ? <p className="mt-6 text-sm"><a className="font-medium text-[#31594b] hover:underline" href={talent.profile_url} rel="noreferrer" target="_blank">打开达人主页 ↗</a></p> : null}
+        <dl className="mt-7 grid gap-4 border-t border-[#edf0ee] pt-6 sm:grid-cols-2 lg:grid-cols-3">{details.map(({ copyValue, label, value }) => <div className="rounded-xl bg-[#f8faf8] p-4" key={label}><dt className="text-xs font-medium text-slate-400">{label}</dt><dd className="mt-1.5 flex items-center justify-between gap-2 text-sm font-medium text-[#35443e]"><span className="min-w-0 truncate">{value}</span>{copyValue ? <CopyButton value={copyValue} /> : null}</dd></div>)}</dl>
+        {talent.profile_url ? <div className="mt-6 flex flex-wrap items-center gap-3 text-sm"><a className="font-medium text-[#31594b] hover:underline" href={talent.profile_url} rel="noreferrer" target="_blank">打开达人主页 ↗</a><CopyButton label="复制主页链接" value={talent.profile_url} /></div> : null}
         <div className="mt-6 border-t border-[#edf0ee] pt-6"><h2 className="text-sm font-semibold text-[#35443e]">联系备注</h2><p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-600">{talent.notes || "暂无备注"}</p></div>
       </div>
 

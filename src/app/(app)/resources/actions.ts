@@ -6,6 +6,15 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { bulkConvertTalentResourcesSchema, bulkUpdateTalentResourcePrioritySchema, convertTalentResourceSchema, createResourceContactRecordSchema, createTalentResourceSchema, updateTalentResourcePrioritySchema, updateTalentResourceProcessingStatusSchema } from "@/lib/validations";
 
+const RESOURCE_RESULT_TO_PROCESSING_STATUS = {
+  friend_request: "waiting_acceptance",
+  reapplication: "waiting_acceptance",
+  accepted: "contacted",
+  replied: "contacted",
+  rejected: "paused",
+  no_response: "attempted_add",
+} as const;
+
 export async function createTalentResource(formData: FormData) {
   const input = createTalentResourceSchema.safeParse(Object.fromEntries(formData));
   if (!input.success) redirect(`/resources?error=${encodeURIComponent(input.error.issues[0]?.message ?? "请检查资源信息")}`);
@@ -200,10 +209,31 @@ export async function createResourceContactRecord(formData: FormData) {
     redirect(errorPath);
   }
 
+  const nextProcessingStatus = RESOURCE_RESULT_TO_PROCESSING_STATUS[
+    input.data.result as keyof typeof RESOURCE_RESULT_TO_PROCESSING_STATUS
+  ];
+  let statusUpdated = false;
+  if (nextProcessingStatus) {
+    const { data: updatedResource } = await supabase
+      .from("talent_resources")
+      .update({ processing_status: nextProcessingStatus })
+      .eq("id", input.data.resource_id)
+      .eq("user_id", userId)
+      .eq("status", "new")
+      .select("id")
+      .maybeSingle();
+    statusUpdated = Boolean(updatedResource);
+  }
+
   revalidatePath("/dashboard");
   revalidatePath("/resources");
   revalidatePath("/resources/process");
   revalidatePath(`/resources/${input.data.resource_id}`);
-  if (continueProcessing) redirect(`/resources/process?after=${input.data.resource_id}&notice=contact-created`);
-  redirect(`/resources/${input.data.resource_id}?notice=contact-created`);
+  const notice = new URLSearchParams({ notice: "contact-created" });
+  if (statusUpdated) notice.set("statusUpdated", "1");
+  if (continueProcessing) {
+    notice.set("after", input.data.resource_id);
+    redirect(`/resources/process?${notice}`);
+  }
+  redirect(`/resources/${input.data.resource_id}?${notice}`);
 }
