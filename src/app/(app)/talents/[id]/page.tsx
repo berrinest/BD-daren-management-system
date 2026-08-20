@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
+import { CreateFollowUpForm } from "@/components/follow-ups/create-follow-up-form";
+import { FollowUpTimeline } from "@/components/follow-ups/follow-up-timeline";
 import { ArchiveTalentForm } from "@/components/talents/archive-talent-form";
 import { CreateTaskForm } from "@/components/tasks/create-task-form";
 import { TaskActions } from "@/components/tasks/task-actions";
@@ -10,7 +12,12 @@ import { createClient } from "@/lib/supabase/server";
 
 type TalentDetailPageProps = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ taskError?: string; taskNotice?: string }>;
+  searchParams: Promise<{
+    followUpError?: string;
+    followUpNotice?: string;
+    taskError?: string;
+    taskNotice?: string;
+  }>;
 };
 
 export default async function TalentDetailPage({ params, searchParams }: TalentDetailPageProps) {
@@ -20,9 +27,14 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
   const userId = claimsData?.claims?.sub;
   if (!userId) redirect("/login");
 
-  const [{ data: talent, error }, { data: pendingTasks, error: tasksError }] = await Promise.all([
+  const [
+    { data: talent, error },
+    { data: pendingTasks, error: tasksError },
+    { data: followUpRecords, error: followUpsError },
+  ] = await Promise.all([
     supabase.from("talents").select("*").eq("id", id).eq("user_id", userId).is("archived_at", null).maybeSingle(),
     supabase.from("tasks").select("id, talent_id, task_type, due_at, notes").eq("talent_id", id).eq("user_id", userId).eq("status", "pending").order("due_at", { ascending: true }),
+    supabase.from("follow_up_records").select("id, method, notes, occurred_at, result").eq("talent_id", id).eq("user_id", userId).order("occurred_at", { ascending: false }),
   ]);
   if (error || !talent) notFound();
 
@@ -56,6 +68,26 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
         {talent.profile_url ? <p className="mt-6 text-sm"><a className="font-medium text-[#31594b] hover:underline" href={talent.profile_url} rel="noreferrer" target="_blank">打开达人主页 ↗</a></p> : null}
         <div className="mt-6 border-t border-[#edf0ee] pt-6"><h2 className="text-sm font-semibold text-[#35443e]">联系备注</h2><p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-600">{talent.notes || "暂无备注"}</p></div>
       </div>
+
+      <section className="mt-6 rounded-2xl border border-[#e7ebe8] bg-white p-6 shadow-sm md:p-8">
+        <div>
+          <p className="text-xs font-semibold tracking-[0.18em] text-[#668074]">FOLLOW-UP HISTORY</p>
+          <h2 className="mt-2 text-lg font-semibold text-[#26332e]">跟进记录</h2>
+          <p className="mt-1 text-sm text-slate-500">记录每一次真实沟通，保留完整时间轴。</p>
+        </div>
+
+        {taskMessage.followUpError ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{taskMessage.followUpError}</p> : null}
+        {taskMessage.followUpNotice === "created" ? <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">跟进记录保存成功。</p> : null}
+
+        <div className="mt-5">
+          <CreateFollowUpForm talentId={talent.id} />
+        </div>
+
+        <div className="mt-7 border-t border-[#edf0ee] pt-6">
+          <h3 className="mb-4 text-sm font-semibold text-[#35443e]">沟通时间轴</h3>
+          {followUpsError ? <p className="text-sm text-red-700">跟进记录加载失败，请稍后重试。</p> : <FollowUpTimeline records={followUpRecords ?? []} />}
+        </div>
+      </section>
 
       <section className="mt-6 rounded-2xl border border-[#e7ebe8] bg-white p-6 shadow-sm md:p-8">
         <div>

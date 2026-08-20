@@ -49,3 +49,17 @@ export const FOLLOW_UP_RESULT_LABELS: Record<
   no_response: "未回复",
   other: "其他",
 };
+
+export function getFollowUpMethodLabel(value: string) {
+  return (
+    FOLLOW_UP_METHOD_LABELS[value as keyof typeof FOLLOW_UP_METHOD_LABELS] ??
+    value
+  );
+}
+
+export function getFollowUpResultLabel(value: string) {
+  return (
+    FOLLOW_UP_RESULT_LABELS[value as keyof typeof FOLLOW_UP_RESULT_LABELS] ??
+    value
+  );
+}
