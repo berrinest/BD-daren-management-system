@@ -12,6 +12,8 @@ import {
 import { formatDateTime, toShanghaiDateTimeLocalValue } from "@/lib/formatters/date";
 
 type CreateFollowUpFormProps = {
+  autoCompleteTask?: boolean;
+  initialTaskId?: string;
   talentId: string;
   pendingTasks: Array<{
     id: string;
@@ -21,7 +23,12 @@ type CreateFollowUpFormProps = {
   }>;
 };
 
-export function CreateFollowUpForm({ talentId, pendingTasks }: CreateFollowUpFormProps) {
+export function CreateFollowUpForm({
+  autoCompleteTask = false,
+  initialTaskId,
+  talentId,
+  pendingTasks,
+}: CreateFollowUpFormProps) {
   return (
     <form
       action={recordFollowUpAndScheduleNext}
@@ -79,7 +86,7 @@ export function CreateFollowUpForm({ talentId, pendingTasks }: CreateFollowUpFor
         当前处理任务
         <select
           className="rounded-lg border border-[#dfe5e1] bg-white px-3 py-2.5"
-          defaultValue=""
+          defaultValue={initialTaskId ?? ""}
           name="task_id"
         >
           <option value="">不关联当前任务</option>
@@ -91,7 +98,12 @@ export function CreateFollowUpForm({ talentId, pendingTasks }: CreateFollowUpFor
         </select>
       </label>
       <label className="flex items-center gap-2 text-sm font-medium text-[#35443e] md:col-span-2">
-        <input className="size-4 accent-[#31594b]" name="complete_current_task" type="checkbox" />
+        <input
+          className="size-4 accent-[#31594b]"
+          defaultChecked={autoCompleteTask}
+          name="complete_current_task"
+          type="checkbox"
+        />
         同时完成所选当前任务
       </label>
       <label className="grid gap-2 text-sm font-medium text-[#35443e]">

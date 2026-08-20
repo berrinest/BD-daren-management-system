@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { z } from "zod";
 
 import { CreateFollowUpForm } from "@/components/follow-ups/create-follow-up-form";
 import { FollowUpTimeline } from "@/components/follow-ups/follow-up-timeline";
@@ -15,6 +16,7 @@ type TalentDetailPageProps = {
   searchParams: Promise<{
     followUpError?: string;
     followUpNotice?: string;
+    task?: string;
     taskError?: string;
     taskNotice?: string;
   }>;
@@ -38,6 +40,37 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
   ]);
   if (error || !talent) notFound();
 
+  const requestedTaskId = taskMessage.task;
+  const parsedTaskId = z.uuid().safeParse(requestedTaskId);
+  let focusedTask: {
+    due_at: string;
+    id: string;
+    notes: string | null;
+    task_type: string;
+  } | null = null;
+  let focusedTaskUnavailable = false;
+
+  if (requestedTaskId) {
+    if (!parsedTaskId.success) {
+      focusedTaskUnavailable = true;
+    } else {
+      const { data: requestedTask, error: requestedTaskError } = await supabase
+        .from("tasks")
+        .select("id, task_type, due_at, notes")
+        .eq("id", parsedTaskId.data)
+        .eq("talent_id", talent.id)
+        .eq("user_id", userId)
+        .eq("status", "pending")
+        .maybeSingle();
+
+      if (requestedTaskError || !requestedTask) {
+        focusedTaskUnavailable = true;
+      } else {
+        focusedTask = requestedTask;
+      }
+    }
+  }
+
   const details = [
     ["主要平台", getTalentPlatformLabel(talent.primary_platform)],
     ["平台账号", talent.platform_account || "未填写"],
@@ -50,6 +83,21 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
   return (
     <main className="p-5 md:p-8"><section className="mx-auto max-w-5xl">
       <Link className="text-sm font-medium text-[#557064] hover:underline" href="/talents">← 返回达人库</Link>
+      {focusedTask ? (
+        <div className="mt-5 flex flex-col justify-between gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 sm:flex-row sm:items-center" role="status">
+          <div>
+            <p className="text-xs font-semibold text-amber-700">当前处理任务</p>
+            <p className="mt-1 text-sm font-medium text-amber-950">{getTaskTypeLabel(focusedTask.task_type)} · {formatDateTime(focusedTask.due_at)}</p>
+            {focusedTask.notes ? <p className="mt-1 text-xs text-amber-800">{focusedTask.notes}</p> : null}
+          </div>
+          <a className="text-sm font-medium text-amber-800 hover:underline" href="#follow-up-form">直接记录跟进 ↓</a>
+        </div>
+      ) : null}
+      {focusedTaskUnavailable ? (
+        <p className="mt-5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600" role="alert">
+          该任务已不存在或已处理，请重新选择任务。
+        </p>
+      ) : null}
       <div className="mt-6 rounded-2xl border border-[#e7ebe8] bg-white p-6 shadow-sm md:p-8">
         <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
           <div>
@@ -79,8 +127,13 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
         {taskMessage.followUpError ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{taskMessage.followUpError}</p> : null}
         {taskMessage.followUpNotice === "created" ? <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">跟进记录与下一步处理成功。</p> : null}
 
-        <div className="mt-5">
-          <CreateFollowUpForm pendingTasks={pendingTasks ?? []} talentId={talent.id} />
+        <div className="mt-5" id="follow-up-form">
+          <CreateFollowUpForm
+            autoCompleteTask={Boolean(focusedTask)}
+            initialTaskId={focusedTask?.id}
+            pendingTasks={pendingTasks ?? []}
+            talentId={talent.id}
+          />
         </div>
 
         <div className="mt-7 border-t border-[#edf0ee] pt-6">
