@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
-import { convertTalentResourceSchema, createTalentResourceSchema } from "@/lib/validations";
+import { convertTalentResourceSchema, createTalentResourceSchema, updateTalentResourcePrioritySchema } from "@/lib/validations";
 
 export async function createTalentResource(formData: FormData) {
   const input = createTalentResourceSchema.safeParse(Object.fromEntries(formData));
@@ -36,4 +36,35 @@ export async function convertTalentResource(formData: FormData) {
   revalidatePath("/resources");
   revalidatePath("/talents");
   redirect(`/talents/${talentId}?resourceNotice=converted`);
+}
+
+export async function updateTalentResourcePriority(formData: FormData) {
+  const input = updateTalentResourcePrioritySchema.safeParse({
+    priority: formData.get("priority"),
+    resource_id: formData.get("resource_id"),
+  });
+  if (!input.success) redirect("/resources?error=快捷处理信息无效");
+
+  const supabase = await createClient();
+  const { data: claims } = await supabase.auth.getClaims();
+  const userId = claims?.claims?.sub;
+  if (!userId) redirect("/login");
+
+  const { data, error } = await supabase
+    .from("talent_resources")
+    .update({ priority: input.data.priority })
+    .eq("id", input.data.resource_id)
+    .eq("user_id", userId)
+    .eq("status", "new")
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) {
+    redirect(`/resources/${input.data.resource_id}?error=资源已转换或当前不可用`);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/resources");
+  revalidatePath(`/resources/${input.data.resource_id}`);
+  redirect(`/resources/${input.data.resource_id}?notice=priority-updated`);
 }

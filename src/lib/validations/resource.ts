@@ -27,3 +27,8 @@ export const createTalentResourceSchema = z.object({
 });
 
 export const convertTalentResourceSchema = z.object({ resource_id: z.uuid() });
+
+export const updateTalentResourcePrioritySchema = z.object({
+  resource_id: z.uuid(),
+  priority: z.enum(TALENT_PRIORITIES),
+});
