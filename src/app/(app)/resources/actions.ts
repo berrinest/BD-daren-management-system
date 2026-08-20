@@ -151,6 +151,7 @@ export async function bulkConvertTalentResources(formData: FormData) {
 }
 
 export async function createResourceContactRecord(formData: FormData) {
+  const continueProcessing = formData.get("continue_processing") === "1";
   const input = createResourceContactRecordSchema.safeParse({
     resource_id: formData.get("resource_id"),
     occurred_at: formData.get("occurred_at"),
@@ -159,8 +160,16 @@ export async function createResourceContactRecord(formData: FormData) {
     notes: formData.get("notes"),
   });
   const fallbackId = convertTalentResourceSchema.safeParse({ resource_id: formData.get("resource_id") });
-  const fallbackPath = fallbackId.success ? `/resources/${fallbackId.data.resource_id}` : "/resources";
-  if (!input.success) redirect(`${fallbackPath}?error=${encodeURIComponent(input.error.issues[0]?.message ?? "请检查联系记录")}`);
+  if (!input.success) {
+    const error = input.error.issues[0]?.message ?? "请检查联系记录";
+    if (continueProcessing) {
+      const params = new URLSearchParams({ error });
+      if (fallbackId.success) params.set("resource", fallbackId.data.resource_id);
+      redirect(`/resources/process?${params}`);
+    }
+    const fallbackPath = fallbackId.success ? `/resources/${fallbackId.data.resource_id}` : "/resources";
+    redirect(`${fallbackPath}?error=${encodeURIComponent(error)}`);
+  }
 
   const supabase = await createClient();
   const { data: claims } = await supabase.auth.getClaims();
@@ -174,7 +183,7 @@ export async function createResourceContactRecord(formData: FormData) {
     .eq("user_id", userId)
     .eq("status", "new")
     .maybeSingle();
-  if (!resource) redirect(`/resources/${input.data.resource_id}?error=资源已转换或当前不可用`);
+  if (!resource) redirect(continueProcessing ? "/resources/process?error=资源已转换或当前不可用" : `/resources/${input.data.resource_id}?error=资源已转换或当前不可用`);
 
   const { error } = await supabase.from("resource_contact_records").insert({
     user_id: userId,
@@ -184,10 +193,17 @@ export async function createResourceContactRecord(formData: FormData) {
     result: input.data.result,
     notes: input.data.notes,
   });
-  if (error) redirect(`/resources/${input.data.resource_id}?error=联系记录保存失败，请稍后重试`);
+  if (error) {
+    const errorPath = continueProcessing
+      ? `/resources/process?resource=${input.data.resource_id}&error=联系记录保存失败，请稍后重试`
+      : `/resources/${input.data.resource_id}?error=联系记录保存失败，请稍后重试`;
+    redirect(errorPath);
+  }
 
   revalidatePath("/dashboard");
   revalidatePath("/resources");
+  revalidatePath("/resources/process");
   revalidatePath(`/resources/${input.data.resource_id}`);
+  if (continueProcessing) redirect(`/resources/process?after=${input.data.resource_id}&notice=contact-created`);
   redirect(`/resources/${input.data.resource_id}?notice=contact-created`);
 }

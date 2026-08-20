@@ -69,7 +69,7 @@ export default async function DashboardPage() {
               <h2 className="font-semibold text-[#35443e]">今日待处理资源</h2>
               <p className="mt-1 text-xs text-slate-400">{pendingResourceCount} 位未转换资源，优先处理高价值达人</p>
             </div>
-            <Link className="text-sm font-medium text-[#31594b] hover:underline" href="/resources">查看资源池</Link>
+            <div className="flex items-center gap-3"><Link className="rounded-lg bg-[#31594b] px-3 py-2 text-xs font-semibold text-white hover:bg-[#284a3e]" href="/resources/process">开始连续处理</Link><Link className="text-sm font-medium text-[#31594b] hover:underline" href="/resources">查看资源池</Link></div>
           </header>
           {pendingResources.length === 0 ? (
             <div className="px-6 py-10 text-center"><p className="font-medium text-[#35443e]">没有待处理资源</p><p className="mt-2 text-sm text-slate-400">今天发现的新达人可以先录入资源池。</p></div>
