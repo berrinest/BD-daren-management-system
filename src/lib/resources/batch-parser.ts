@@ -25,13 +25,30 @@ const priorityAliases = new Map<string, string>([
 ]);
 
 function splitLine(line: string) {
-  return line.includes("\t") ? line.split("\t") : line.split(",");
+  if (line.includes("\t")) return line.split("\t");
+  if (line.includes(",")) return line.split(",");
+  return line.split(/\s+/);
+}
+
+function normalizeCells(cells: string[]) {
+  const isShortFormat =
+    (cells.length === 3 || cells.length === 4)
+    && platformAliases.has((cells[1] ?? "").toLowerCase())
+    && TALENT_CATEGORIES.includes(cells[2] as (typeof TALENT_CATEGORIES)[number])
+    && (cells.length === 3 || priorityAliases.has((cells[3] ?? "").toLowerCase()));
+
+  if (isShortFormat) {
+    const [nickname = "", platform = "", category = "", priority = "normal"] = cells;
+    return [nickname, platform, category, "", "", "", "", priority, "", ""];
+  }
+
+  return cells;
 }
 
 export function parseBatchResources(text: string): ParsedBatchRow[] {
   const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
   return lines.slice(0, 101).map((line, index) => {
-    const cells = splitLine(line).map((cell) => cell.trim());
+    const cells = normalizeCells(splitLine(line).map((cell) => cell.trim()));
     const [nickname = "", platformRaw = "", category = "", platformAccount = "", wechat = "", profileUrl = "", followerRaw = "", priorityRaw = "normal", source = "", notes = ""] = cells;
     const primaryPlatform = platformAliases.get(platformRaw.toLowerCase()) ?? "";
     const priority = priorityAliases.get(priorityRaw.toLowerCase()) ?? "";

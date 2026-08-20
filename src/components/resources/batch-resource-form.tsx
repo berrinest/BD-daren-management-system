@@ -27,9 +27,9 @@ export function BatchResourceForm() {
     {state.imported !== undefined ? <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">导入完成：新增 {state.imported} 条，跳过重复 {state.skipped ?? 0} 条。</p> : null}
     <section className="rounded-2xl border border-[#e7ebe8] bg-white p-5 shadow-sm">
       <h2 className="font-semibold text-[#26332e]">粘贴资源数据</h2>
-      <p className="mt-2 text-sm leading-6 text-slate-500">每行一个达人，支持从表格直接复制的制表符格式，也支持逗号分隔。前三列必填。</p>
-      <p className="mt-1 text-xs text-slate-400">列顺序：昵称、平台、赛道、平台账号、微信号、主页链接、粉丝数、优先级、发现来源、备注。平台可填“抖音”等中文，优先级默认“普通”。</p>
-      <textarea className="mt-4 min-h-52 w-full resize-y rounded-xl border border-[#dfe5e1] px-4 py-3 text-sm leading-6" onChange={(event) => setText(event.target.value)} placeholder={"例如：\n小美\t抖音\t美妆\tmeimei88\twx_meimei\thttps://example.com\t120000\t高价值\t抖音搜索\t内容匹配"} value={text} />
+      <p className="mt-2 text-sm leading-6 text-slate-500">每行一个达人。快速格式可用空格、制表符或逗号分隔：昵称、平台、赛道、优先级。</p>
+      <p className="mt-1 text-xs text-slate-400">完整格式列顺序：昵称、平台、赛道、平台账号、微信号、主页链接、粉丝数、优先级、发现来源、备注。快速格式可省略优先级，默认为“普通”。</p>
+      <textarea className="mt-4 min-h-52 w-full resize-y rounded-xl border border-[#dfe5e1] px-4 py-3 text-sm leading-6" onChange={(event) => setText(event.target.value)} placeholder={"例如：\ntest8 抖音 美妆 高价值\ntest9 小红书 美食 普通"} value={text} />
       <div className="mt-4 flex items-center justify-between gap-3">
         <span className="text-xs text-slate-400">单次最多 100 条，导入前会在服务端再次校验和查重。</span>
         <button className="rounded-lg border border-[#31594b] px-4 py-2 text-sm font-medium text-[#31594b] disabled:opacity-40" disabled={!text.trim()} onClick={() => setPreviewedText(text)} type="button">解析并预览</button>
