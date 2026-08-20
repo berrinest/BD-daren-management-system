@@ -8,10 +8,12 @@ import {
 } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
 
-type TalentsPageProps = { searchParams: Promise<{ q?: string }> };
+type TalentsPageProps = {
+  searchParams: Promise<{ notice?: string; q?: string }>;
+};
 
 export default async function TalentsPage({ searchParams }: TalentsPageProps) {
-  const { q = "" } = await searchParams;
+  const { notice, q = "" } = await searchParams;
   const search = q.trim().slice(0, 100);
   const supabase = await createClient();
   const { data: claimsData } = await supabase.auth.getClaims();
@@ -53,6 +55,12 @@ export default async function TalentsPage({ searchParams }: TalentsPageProps) {
           <button className="rounded-lg border border-[#d6dfda] px-4 py-2 text-sm font-medium text-[#31594b] hover:bg-[#f4f6f4]" type="submit">搜索</button>
           {search ? <Link className="inline-flex items-center px-2 text-sm text-slate-500 hover:text-[#31594b]" href="/talents">清除</Link> : null}
         </form>
+
+        {notice === "archived" ? (
+          <p className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">
+            达人已归档，并从默认列表隐藏。
+          </p>
+        ) : null}
 
         {error ? <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">达人数据加载失败，请稍后重试。</div> : null}
 
