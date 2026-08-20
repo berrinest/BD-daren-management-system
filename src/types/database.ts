@@ -111,6 +111,7 @@ export type Database = {
           platform_account: string | null
           primary_platform: string
           priority: string
+          processing_status: string
           profile_url: string | null
           source: string | null
           status: string
@@ -131,6 +132,7 @@ export type Database = {
           platform_account?: string | null
           primary_platform: string
           priority?: string
+          processing_status?: string
           profile_url?: string | null
           source?: string | null
           status?: string
@@ -151,6 +153,7 @@ export type Database = {
           platform_account?: string | null
           primary_platform?: string
           priority?: string
+          processing_status?: string
           profile_url?: string | null
           source?: string | null
           status?: string

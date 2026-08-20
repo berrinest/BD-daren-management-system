@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
-import { bulkConvertTalentResourcesSchema, bulkUpdateTalentResourcePrioritySchema, convertTalentResourceSchema, createTalentResourceSchema, updateTalentResourcePrioritySchema } from "@/lib/validations";
+import { bulkConvertTalentResourcesSchema, bulkUpdateTalentResourcePrioritySchema, convertTalentResourceSchema, createTalentResourceSchema, updateTalentResourcePrioritySchema, updateTalentResourceProcessingStatusSchema } from "@/lib/validations";
 
 export async function createTalentResource(formData: FormData) {
   const input = createTalentResourceSchema.safeParse(Object.fromEntries(formData));
@@ -67,6 +67,37 @@ export async function updateTalentResourcePriority(formData: FormData) {
   revalidatePath("/resources");
   revalidatePath(`/resources/${input.data.resource_id}`);
   redirect(`/resources/${input.data.resource_id}?notice=priority-updated`);
+}
+
+export async function updateTalentResourceProcessingStatus(formData: FormData) {
+  const input = updateTalentResourceProcessingStatusSchema.safeParse({
+    processing_status: formData.get("processing_status"),
+    resource_id: formData.get("resource_id"),
+  });
+  if (!input.success) redirect("/resources?error=资源处理状态无效");
+
+  const supabase = await createClient();
+  const { data: claims } = await supabase.auth.getClaims();
+  const userId = claims?.claims?.sub;
+  if (!userId) redirect("/login");
+
+  const { data, error } = await supabase
+    .from("talent_resources")
+    .update({ processing_status: input.data.processing_status })
+    .eq("id", input.data.resource_id)
+    .eq("user_id", userId)
+    .eq("status", "new")
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) {
+    redirect(`/resources/${input.data.resource_id}?error=资源已转换或当前不可用`);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/resources");
+  revalidatePath(`/resources/${input.data.resource_id}`);
+  redirect(`/resources/${input.data.resource_id}?notice=status-updated`);
 }
 
 export async function bulkUpdateTalentResourcePriority(formData: FormData) {

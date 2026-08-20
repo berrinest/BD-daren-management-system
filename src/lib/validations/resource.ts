@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { TALENT_CATEGORIES, TALENT_PLATFORMS, TALENT_PRIORITIES } from "@/lib/constants";
+import { RESOURCE_PROCESSING_STATUSES, TALENT_CATEGORIES, TALENT_PLATFORMS, TALENT_PRIORITIES } from "@/lib/constants";
 
 const optionalText = (max: number) => z.preprocess(
   (value) => typeof value === "string" && value.trim() === "" ? null : value,
@@ -31,6 +31,11 @@ export const convertTalentResourceSchema = z.object({ resource_id: z.uuid() });
 export const updateTalentResourcePrioritySchema = z.object({
   resource_id: z.uuid(),
   priority: z.enum(TALENT_PRIORITIES),
+});
+
+export const updateTalentResourceProcessingStatusSchema = z.object({
+  resource_id: z.uuid(),
+  processing_status: z.enum(RESOURCE_PROCESSING_STATUSES),
 });
 
 const resourceIds = z.array(z.uuid()).min(1, "请至少选择一条资源").max(100, "单次最多处理 100 条资源");
