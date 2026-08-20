@@ -7,8 +7,9 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createTaskSchema, taskMutationSchema } from "@/lib/validations";
 
-function taskRedirect(returnTo: "talent" | "tasks", talentId: string) {
-  redirect(returnTo === "talent" ? `/talents/${talentId}` : "/tasks");
+function taskRedirect(returnTo: "talent" | "tasks", talentId: string, notice?: string) {
+  const path = returnTo === "talent" ? `/talents/${talentId}` : "/tasks";
+  redirect(notice ? `${path}?taskNotice=${notice}` : path);
 }
 
 export async function createTask(formData: FormData) {
@@ -68,22 +69,19 @@ export async function completeTask(formData: FormData) {
 
   if (!userId) redirect("/login");
 
-  const { data, error } = await supabase
-    .from("tasks")
-    .update({ status: "completed", completed_at: new Date().toISOString() })
-    .eq("id", input.data.task_id)
-    .eq("user_id", userId)
-    .eq("status", "pending")
-    .select("id")
-    .maybeSingle();
+  const { data, error } = await supabase.rpc("complete_task_and_record_follow_up", {
+    p_task_id: input.data.task_id,
+    p_talent_id: input.data.talent_id,
+  });
 
-  if (error || !data) {
+  if (error || !data?.[0]?.follow_up_record_id) {
     taskRedirect(input.data.return_to, input.data.talent_id);
   }
 
+  revalidatePath("/dashboard");
   revalidatePath("/tasks");
   revalidatePath(`/talents/${input.data.talent_id}`);
-  taskRedirect(input.data.return_to, input.data.talent_id);
+  taskRedirect(input.data.return_to, input.data.talent_id, "completed");
 }
 
 export async function cancelTask(formData: FormData) {

@@ -7,7 +7,7 @@ import type { Tables } from "@/types/database";
 
 type FollowUpRecord = Pick<
   Tables<"follow_up_records">,
-  "id" | "method" | "notes" | "occurred_at" | "result"
+  "id" | "method" | "notes" | "occurred_at" | "result" | "task_id"
 >;
 
 type FollowUpTimelineProps = {
@@ -36,7 +36,7 @@ export function FollowUpTimeline({ records }: FollowUpTimelineProps) {
           <article className="pb-6">
             <div className="flex flex-col justify-between gap-1 sm:flex-row sm:items-center">
               <h3 className="text-sm font-semibold text-[#35443e]">
-                {getFollowUpResultLabel(record.result)}
+                {record.task_id ? "任务已完成" : getFollowUpResultLabel(record.result)}
               </h3>
               <time className="text-xs text-slate-400">
                 {formatDateTime(record.occurred_at)}
