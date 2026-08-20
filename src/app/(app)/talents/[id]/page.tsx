@@ -123,19 +123,6 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
         <div className="mt-6 border-t border-[#edf0ee] pt-6"><h2 className="text-sm font-semibold text-[#35443e]">联系备注</h2><p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-600">{talent.notes || "暂无备注"}</p></div>
       </div>
 
-      <section className="mt-6 rounded-2xl border border-[#e7ebe8] bg-white p-6 shadow-sm md:p-8">
-        <div>
-          <p className="text-xs font-semibold tracking-[0.18em] text-[#668074]">FOLLOW-UP HISTORY</p>
-          <h2 className="mt-2 text-lg font-semibold text-[#26332e]">跟进记录</h2>
-          <p className="mt-1 text-sm text-slate-500">资源联系历史和已完成任务会自动汇总到这里。</p>
-        </div>
-
-        <div className="mt-5 border-t border-[#edf0ee] pt-6">
-          <h3 className="mb-4 text-sm font-semibold text-[#35443e]">沟通时间轴</h3>
-          {followUpsError ? <p className="text-sm text-red-700">跟进记录加载失败，请稍后重试。</p> : <FollowUpTimeline records={followUpRecords ?? []} />}
-        </div>
-      </section>
-
       <section className="mt-6 rounded-2xl border border-[#e7ebe8] bg-white p-6 shadow-sm md:p-8" id="current-tasks">
         <div>
           <p className="text-xs font-semibold tracking-[0.18em] text-[#668074]">CURRENT TASKS</p>
@@ -167,6 +154,19 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
         <div className="mt-6 border-t border-[#edf0ee] pt-6">
           <h3 className="mb-3 text-sm font-semibold text-[#35443e]">创建下一次跟进任务</h3>
           <CreateTaskForm talentId={talent.id} />
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-2xl border border-[#e7ebe8] bg-white p-6 shadow-sm md:p-8">
+        <div>
+          <p className="text-xs font-semibold tracking-[0.18em] text-[#668074]">FOLLOW-UP HISTORY</p>
+          <h2 className="mt-2 text-lg font-semibold text-[#26332e]">跟进记录</h2>
+          <p className="mt-1 text-sm text-slate-500">资源联系历史和已完成任务会自动汇总到这里。</p>
+        </div>
+
+        <div className="mt-5 border-t border-[#edf0ee] pt-6">
+          <h3 className="mb-4 text-sm font-semibold text-[#35443e]">沟通时间轴</h3>
+          {followUpsError ? <p className="text-sm text-red-700">跟进记录加载失败，请稍后重试。</p> : <FollowUpTimeline records={followUpRecords ?? []} />}
         </div>
       </section>
     </section></main>
