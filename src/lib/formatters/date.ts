@@ -24,3 +24,9 @@ export function toShanghaiDateTimeLocalValue(value = new Date()) {
 
   return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}`;
 }
+
+export function toShanghaiTomorrowDateTimeLocalValue() {
+  return toShanghaiDateTimeLocalValue(
+    new Date(new Date().getTime() + 24 * 60 * 60 * 1000),
+  );
+}

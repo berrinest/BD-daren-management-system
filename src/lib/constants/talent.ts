@@ -42,6 +42,24 @@ export const TALENT_PLATFORMS = [
   "other",
 ] as const;
 
+export const TALENT_CATEGORIES = [
+  "美妆",
+  "美食",
+  "搞笑",
+  "穿搭",
+  "母婴",
+  "生活",
+  "家居",
+  "数码",
+  "汽车",
+  "健身",
+  "旅行",
+  "知识",
+  "游戏",
+  "宠物",
+  "其他",
+] as const;
+
 export const TALENT_PLATFORM_LABELS: Record<
   (typeof TALENT_PLATFORMS)[number],
   string

@@ -76,7 +76,7 @@ export default async function TalentsPage({ searchParams }: TalentsPageProps) {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[900px] border-collapse text-left text-sm">
                 <thead className="bg-[#f8faf8] text-xs font-semibold tracking-wide text-[#668074]">
-                  <tr><th className="px-5 py-3">达人</th><th className="px-4 py-3">平台</th><th className="px-4 py-3">微信</th><th className="px-4 py-3">标签</th><th className="px-4 py-3">优先级</th><th className="px-4 py-3">阶段</th><th className="px-5 py-3 text-right">操作</th></tr>
+                  <tr><th className="px-5 py-3">达人</th><th className="px-4 py-3">平台</th><th className="px-4 py-3">微信</th><th className="px-4 py-3">赛道</th><th className="px-4 py-3">优先级</th><th className="px-4 py-3">阶段</th><th className="px-5 py-3 text-right">操作</th></tr>
                 </thead>
                 <tbody className="divide-y divide-[#edf0ee]">
                   {talents.map((talent) => (
@@ -84,7 +84,7 @@ export default async function TalentsPage({ searchParams }: TalentsPageProps) {
                       <td className="px-5 py-4"><strong className="block font-semibold text-[#2f3d37]">{talent.nickname}</strong><span className="mt-1 block text-xs text-slate-400">{talent.platform_account || "未填写平台账号"}</span></td>
                       <td className="px-4 py-4 text-slate-600">{getTalentPlatformLabel(talent.primary_platform)}</td>
                       <td className="px-4 py-4 text-slate-600">{talent.wechat || "—"}</td>
-                      <td className="px-4 py-4"><div className="flex max-w-52 flex-wrap gap-1.5">{talent.tags.length > 0 ? talent.tags.slice(0, 3).map((tag) => <span className="rounded-full bg-[#eef4f1] px-2 py-1 text-xs text-[#48685b]" key={tag}>{tag}</span>) : "—"}</div></td>
+                      <td className="px-4 py-4"><span className="rounded-full bg-[#eef4f1] px-2 py-1 text-xs text-[#48685b]">{talent.tags[0] || "未设置"}</span></td>
                       <td className="px-4 py-4 text-slate-600">{getTalentPriorityLabel(talent.priority)}</td>
                       <td className="px-4 py-4 text-slate-600">{getTalentStageLabel(talent.stage)}</td>
                       <td className="px-5 py-4 text-right"><Link className="font-medium text-[#31594b] hover:underline" href={`/talents/${talent.id}`}>查看</Link></td>

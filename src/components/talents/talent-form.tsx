@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import {
+  TALENT_CATEGORIES,
   TALENT_PLATFORMS,
   TALENT_PLATFORM_LABELS,
   TALENT_PRIORITIES,
@@ -28,6 +29,10 @@ export function TalentForm({
   initialValue,
   submitLabel,
 }: TalentFormProps) {
+  const initialCategory = TALENT_CATEGORIES.find(
+    (category) => category === initialValue?.tags[0],
+  );
+
   return (
     <form
       action={action}
@@ -129,13 +134,18 @@ export function TalentForm({
           </select>
         </label>
         <label className="grid gap-2 text-sm font-medium text-[#35443e] md:col-span-2">
-          标签
-          <input
+          赛道类别 *
+          <select
             className={inputClassName}
-            defaultValue={initialValue?.tags.join("，") ?? ""}
+            defaultValue={initialCategory ?? ""}
             name="tags"
-            placeholder="美妆，直播，高转化（使用逗号分隔）"
-          />
+            required
+          >
+            <option disabled value="">请选择赛道类别</option>
+            {TALENT_CATEGORIES.map((category) => (
+              <option key={category} value={category}>{category}</option>
+            ))}
+          </select>
         </label>
         <label className="grid gap-2 text-sm font-medium text-[#35443e] md:col-span-2">
           联系备注

@@ -1,6 +1,7 @@
 import { z } from "zod";
 
 import {
+  TALENT_CATEGORIES,
   TALENT_PLATFORMS,
   TALENT_PRIORITIES,
   TALENT_STAGES,
@@ -24,13 +25,13 @@ const optionalFollowerCount = z.preprocess((value) => {
   return typeof value === "string" ? Number(value) : value;
 }, z.number().int("粉丝数必须是整数").nonnegative("粉丝数不能小于 0").nullable());
 
-const tags = z.preprocess(
+const category = z.preprocess(
   (value) => {
     if (Array.isArray(value)) return value;
     if (typeof value !== "string" || value.trim() === "") return [];
-    return [...new Set(value.split(/[,，]/).map((tag) => tag.trim()).filter(Boolean))];
+    return [value.trim()];
   },
-  z.array(z.string().max(30, "单个标签不能超过 30 个字符")).max(20, "最多添加 20 个标签"),
+  z.array(z.enum(TALENT_CATEGORIES)).length(1, "请选择达人赛道类别"),
 );
 
 export const createTalentSchema = z.object({
@@ -40,7 +41,7 @@ export const createTalentSchema = z.object({
   profile_url: optionalUrl,
   wechat: optionalText(100),
   follower_count: optionalFollowerCount,
-  tags,
+  tags: category,
   priority: z.enum(TALENT_PRIORITIES),
   stage: z.enum(TALENT_STAGES),
   notes: optionalText(2000),

@@ -108,6 +108,9 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
           <div>
             <p className="text-xs font-semibold tracking-[0.18em] text-[#668074]">TALENT PROFILE</p>
             <h1 className="mt-2 text-2xl font-semibold text-[#26332e]">{talent.nickname}</h1>
+            <p className="mt-2 text-sm text-slate-500">
+              赛道类别：<span className="font-medium text-[#31594b]">{talent.tags[0] || "未设置"}</span>
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Link className="rounded-lg border border-[#d6dfda] px-4 py-2 text-sm font-medium text-[#31594b] hover:bg-[#f4f6f4]" href={`/talents/${talent.id}/edit`}>
@@ -116,7 +119,6 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
             <ArchiveTalentForm talentId={talent.id} />
           </div>
         </div>
-        <div className="mt-4 flex flex-wrap gap-2">{talent.tags.length > 0 ? talent.tags.map((tag) => <span className="rounded-full bg-[#eef4f1] px-2.5 py-1 text-xs text-[#48685b]" key={tag}>{tag}</span>) : <span className="text-sm text-slate-400">暂无标签</span>}</div>
         <dl className="mt-7 grid gap-4 border-t border-[#edf0ee] pt-6 sm:grid-cols-2 lg:grid-cols-3">{details.map(([label, value]) => <div className="rounded-xl bg-[#f8faf8] p-4" key={label}><dt className="text-xs font-medium text-slate-400">{label}</dt><dd className="mt-1.5 text-sm font-medium text-[#35443e]">{value}</dd></div>)}</dl>
         {talent.profile_url ? <p className="mt-6 text-sm"><a className="font-medium text-[#31594b] hover:underline" href={talent.profile_url} rel="noreferrer" target="_blank">打开达人主页 ↗</a></p> : null}
         <div className="mt-6 border-t border-[#edf0ee] pt-6"><h2 className="text-sm font-semibold text-[#35443e]">联系备注</h2><p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-600">{talent.notes || "暂无备注"}</p></div>

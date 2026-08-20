@@ -1,11 +1,14 @@
 import { createTask } from "@/app/(app)/tasks/actions";
 import { TASK_TYPES, TASK_TYPE_LABELS } from "@/lib/constants";
+import { toShanghaiTomorrowDateTimeLocalValue } from "@/lib/formatters/date";
 
 type CreateTaskFormProps = {
   talentId: string;
 };
 
 export function CreateTaskForm({ talentId }: CreateTaskFormProps) {
+  const defaultDueAt = toShanghaiTomorrowDateTimeLocalValue();
+
   return (
     <form
       action={createTask}
@@ -30,6 +33,7 @@ export function CreateTaskForm({ talentId }: CreateTaskFormProps) {
         到期时间
         <input
           className="rounded-lg border border-[#dfe5e1] bg-white px-3 py-2.5"
+          defaultValue={defaultDueAt}
           name="due_at"
           required
           type="datetime-local"
