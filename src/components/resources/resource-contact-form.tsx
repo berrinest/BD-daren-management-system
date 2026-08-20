@@ -11,11 +11,12 @@ type Props = { continueProcessing?: boolean; processingScope?: "today"; resource
 
 const STATUS_HINTS: Partial<Record<(typeof RESOURCE_CONTACT_RESULTS)[number], string>> = {
   friend_request: "自动更新为“等待通过”，后天上午 10 点再次处理",
+  reapplication: "自动更新为“等待通过”，后天上午 10 点再次处理",
   accepted: "自动更新为“已联系”，后天上午 10 点再次处理",
   no_response: "自动更新为“已尝试添加”，后天上午 10 点再次处理",
 };
 
-const VISIBLE_RESULTS = ["friend_request", "accepted", "no_response"] as const;
+const VISIBLE_RESULTS = ["friend_request", "reapplication", "accepted", "no_response"] as const;
 
 function getSuggestedNextAction() {
   return toShanghaiDateTimeLocalValue(getShanghaiSecondDayAtTen());
