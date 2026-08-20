@@ -124,6 +124,57 @@ export type Database = {
         }
         Relationships: []
       }
+      resource_contact_records: {
+        Row: {
+          created_at: string
+          id: string
+          method: string
+          notes: string | null
+          occurred_at: string
+          resource_id: string
+          result: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          method?: string
+          notes?: string | null
+          occurred_at?: string
+          resource_id: string
+          result: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          method?: string
+          notes?: string | null
+          occurred_at?: string
+          resource_id?: string
+          result?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "resource_contact_records_resource_owner_fk"
+            columns: ["resource_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "talent_resources"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "resource_contact_records_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       talent_resources: {
         Row: {
           category: string

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { RESOURCE_PROCESSING_STATUSES, TALENT_CATEGORIES, TALENT_PLATFORMS, TALENT_PRIORITIES } from "@/lib/constants";
+import { RESOURCE_CONTACT_METHODS, RESOURCE_CONTACT_RESULTS, RESOURCE_PROCESSING_STATUSES, TALENT_CATEGORIES, TALENT_PLATFORMS, TALENT_PRIORITIES } from "@/lib/constants";
 
 const optionalText = (max: number) => z.preprocess(
   (value) => typeof value === "string" && value.trim() === "" ? null : value,
@@ -47,4 +47,16 @@ export const bulkUpdateTalentResourcePrioritySchema = z.object({
 
 export const bulkConvertTalentResourcesSchema = z.object({
   resource_ids: resourceIds,
+});
+
+export const createResourceContactRecordSchema = z.object({
+  resource_id: z.uuid(),
+  occurred_at: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "请选择有效的联系时间")
+    .transform((value) => new Date(`${value}:00+08:00`))
+    .refine((value) => !Number.isNaN(value.getTime()), "请选择有效的联系时间"),
+  method: z.enum(RESOURCE_CONTACT_METHODS),
+  result: z.enum(RESOURCE_CONTACT_RESULTS),
+  notes: optionalText(2000),
 });

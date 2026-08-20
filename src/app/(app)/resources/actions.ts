@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
-import { bulkConvertTalentResourcesSchema, bulkUpdateTalentResourcePrioritySchema, convertTalentResourceSchema, createTalentResourceSchema, updateTalentResourcePrioritySchema, updateTalentResourceProcessingStatusSchema } from "@/lib/validations";
+import { bulkConvertTalentResourcesSchema, bulkUpdateTalentResourcePrioritySchema, convertTalentResourceSchema, createResourceContactRecordSchema, createTalentResourceSchema, updateTalentResourcePrioritySchema, updateTalentResourceProcessingStatusSchema } from "@/lib/validations";
 
 export async function createTalentResource(formData: FormData) {
   const input = createTalentResourceSchema.safeParse(Object.fromEntries(formData));
@@ -148,4 +148,46 @@ export async function bulkConvertTalentResources(formData: FormData) {
   revalidatePath("/resources");
   revalidatePath("/talents");
   redirect(`/resources?notice=batch-converted&success=${success}&failed=${failed}`);
+}
+
+export async function createResourceContactRecord(formData: FormData) {
+  const input = createResourceContactRecordSchema.safeParse({
+    resource_id: formData.get("resource_id"),
+    occurred_at: formData.get("occurred_at"),
+    method: formData.get("method"),
+    result: formData.get("result"),
+    notes: formData.get("notes"),
+  });
+  const fallbackId = convertTalentResourceSchema.safeParse({ resource_id: formData.get("resource_id") });
+  const fallbackPath = fallbackId.success ? `/resources/${fallbackId.data.resource_id}` : "/resources";
+  if (!input.success) redirect(`${fallbackPath}?error=${encodeURIComponent(input.error.issues[0]?.message ?? "请检查联系记录")}`);
+
+  const supabase = await createClient();
+  const { data: claims } = await supabase.auth.getClaims();
+  const userId = claims?.claims?.sub;
+  if (!userId) redirect("/login");
+
+  const { data: resource } = await supabase
+    .from("talent_resources")
+    .select("id")
+    .eq("id", input.data.resource_id)
+    .eq("user_id", userId)
+    .eq("status", "new")
+    .maybeSingle();
+  if (!resource) redirect(`/resources/${input.data.resource_id}?error=资源已转换或当前不可用`);
+
+  const { error } = await supabase.from("resource_contact_records").insert({
+    user_id: userId,
+    resource_id: input.data.resource_id,
+    occurred_at: input.data.occurred_at.toISOString(),
+    method: input.data.method,
+    result: input.data.result,
+    notes: input.data.notes,
+  });
+  if (error) redirect(`/resources/${input.data.resource_id}?error=联系记录保存失败，请稍后重试`);
+
+  revalidatePath("/dashboard");
+  revalidatePath("/resources");
+  revalidatePath(`/resources/${input.data.resource_id}`);
+  redirect(`/resources/${input.data.resource_id}?notice=contact-created`);
 }
