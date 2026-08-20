@@ -2,19 +2,28 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 
 import { ArchiveTalentForm } from "@/components/talents/archive-talent-form";
-import { getTalentPlatformLabel, getTalentPriorityLabel, getTalentStageLabel } from "@/lib/constants";
+import { CreateTaskForm } from "@/components/tasks/create-task-form";
+import { TaskActions } from "@/components/tasks/task-actions";
+import { getTalentPlatformLabel, getTalentPriorityLabel, getTalentStageLabel, getTaskTypeLabel } from "@/lib/constants";
+import { formatDateTime } from "@/lib/formatters/date";
 import { createClient } from "@/lib/supabase/server";
 
-type TalentDetailPageProps = { params: Promise<{ id: string }> };
+type TalentDetailPageProps = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ taskError?: string; taskNotice?: string }>;
+};
 
-export default async function TalentDetailPage({ params }: TalentDetailPageProps) {
-  const { id } = await params;
+export default async function TalentDetailPage({ params, searchParams }: TalentDetailPageProps) {
+  const [{ id }, taskMessage] = await Promise.all([params, searchParams]);
   const supabase = await createClient();
   const { data: claimsData } = await supabase.auth.getClaims();
   const userId = claimsData?.claims?.sub;
   if (!userId) redirect("/login");
 
-  const { data: talent, error } = await supabase.from("talents").select("*").eq("id", id).eq("user_id", userId).is("archived_at", null).maybeSingle();
+  const [{ data: talent, error }, { data: pendingTasks, error: tasksError }] = await Promise.all([
+    supabase.from("talents").select("*").eq("id", id).eq("user_id", userId).is("archived_at", null).maybeSingle(),
+    supabase.from("tasks").select("id, talent_id, task_type, due_at, notes").eq("talent_id", id).eq("user_id", userId).eq("status", "pending").order("due_at", { ascending: true }),
+  ]);
   if (error || !talent) notFound();
 
   const details = [
@@ -47,6 +56,39 @@ export default async function TalentDetailPage({ params }: TalentDetailPageProps
         {talent.profile_url ? <p className="mt-6 text-sm"><a className="font-medium text-[#31594b] hover:underline" href={talent.profile_url} rel="noreferrer" target="_blank">打开达人主页 ↗</a></p> : null}
         <div className="mt-6 border-t border-[#edf0ee] pt-6"><h2 className="text-sm font-semibold text-[#35443e]">联系备注</h2><p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-600">{talent.notes || "暂无备注"}</p></div>
       </div>
+
+      <section className="mt-6 rounded-2xl border border-[#e7ebe8] bg-white p-6 shadow-sm md:p-8">
+        <div>
+          <p className="text-xs font-semibold tracking-[0.18em] text-[#668074]">CURRENT TASKS</p>
+          <h2 className="mt-2 text-lg font-semibold text-[#26332e]">当前任务</h2>
+          <p className="mt-1 text-sm text-slate-500">创建下一次行动，并处理该达人的待办任务。</p>
+        </div>
+
+        {taskMessage.taskError ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{taskMessage.taskError}</p> : null}
+        {taskMessage.taskNotice === "created" ? <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">任务创建成功。</p> : null}
+
+        {tasksError ? <p className="mt-5 text-sm text-red-700">任务加载失败，请稍后重试。</p> : null}
+        {!tasksError && pendingTasks?.length === 0 ? <p className="mt-5 rounded-xl border border-dashed border-[#dfe5e1] px-4 py-6 text-center text-sm text-slate-400">当前没有待处理任务</p> : null}
+        {!tasksError && pendingTasks && pendingTasks.length > 0 ? (
+          <div className="mt-5 grid gap-3">
+            {pendingTasks.map((task) => (
+              <article className="flex flex-col justify-between gap-3 rounded-xl border border-[#e4e9e6] p-4 sm:flex-row sm:items-center" key={task.id}>
+                <div>
+                  <h3 className="text-sm font-semibold text-[#35443e]">{getTaskTypeLabel(task.task_type)}</h3>
+                  <p className="mt-1 text-xs text-slate-500">到期：{formatDateTime(task.due_at)}</p>
+                  {task.notes ? <p className="mt-2 text-sm text-slate-600">{task.notes}</p> : null}
+                </div>
+                <TaskActions returnTo="talent" talentId={talent.id} taskId={task.id} />
+              </article>
+            ))}
+          </div>
+        ) : null}
+
+        <div className="mt-6 border-t border-[#edf0ee] pt-6">
+          <h3 className="mb-3 text-sm font-semibold text-[#35443e]">创建下一次跟进任务</h3>
+          <CreateTaskForm talentId={talent.id} />
+        </div>
+      </section>
     </section></main>
   );
 }
