@@ -77,10 +77,10 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
         </div>
 
         {taskMessage.followUpError ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{taskMessage.followUpError}</p> : null}
-        {taskMessage.followUpNotice === "created" ? <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">跟进记录保存成功。</p> : null}
+        {taskMessage.followUpNotice === "created" ? <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">跟进记录与下一步处理成功。</p> : null}
 
         <div className="mt-5">
-          <CreateFollowUpForm talentId={talent.id} />
+          <CreateFollowUpForm pendingTasks={pendingTasks ?? []} talentId={talent.id} />
         </div>
 
         <div className="mt-7 border-t border-[#edf0ee] pt-6">

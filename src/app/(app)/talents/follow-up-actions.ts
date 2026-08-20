@@ -5,15 +5,21 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
-import { createFollowUpSchema } from "@/lib/validations";
+import { recordFollowUpAndScheduleNextSchema } from "@/lib/validations";
 
-export async function createFollowUpRecord(formData: FormData) {
-  const input = createFollowUpSchema.safeParse({
+export async function recordFollowUpAndScheduleNext(formData: FormData) {
+  const input = recordFollowUpAndScheduleNextSchema.safeParse({
     talent_id: formData.get("talent_id"),
     occurred_at: formData.get("occurred_at"),
     method: formData.get("method"),
     result: formData.get("result"),
     notes: formData.get("notes"),
+    task_id: formData.get("task_id"),
+    complete_current_task: formData.get("complete_current_task"),
+    next_stage: formData.get("next_stage"),
+    next_task_due_at: formData.get("next_task_due_at"),
+    next_task_type: formData.get("next_task_type"),
+    next_task_notes: formData.get("next_task_notes"),
   });
 
   if (!input.success) {
@@ -31,31 +37,34 @@ export async function createFollowUpRecord(formData: FormData) {
 
   if (!userId) redirect("/login");
 
-  const { data: talent, error: talentError } = await supabase
-    .from("talents")
-    .select("id")
-    .eq("id", input.data.talent_id)
-    .eq("user_id", userId)
-    .is("archived_at", null)
-    .maybeSingle();
-
-  if (talentError || !talent) redirect("/talents");
-
-  const { error } = await supabase.from("follow_up_records").insert({
-    user_id: userId,
-    talent_id: talent.id,
-    occurred_at: input.data.occurred_at.toISOString(),
-    method: input.data.method,
-    result: input.data.result,
-    notes: input.data.notes,
+  const talentId = input.data.talent_id;
+  const { error } = await supabase.rpc("record_follow_up_and_schedule_next", {
+    p_talent_id: talentId,
+    p_occurred_at: input.data.occurred_at.toISOString(),
+    p_method: input.data.method,
+    p_result: input.data.result,
+    p_next_task_type: input.data.next_task_type,
+    ...(input.data.notes ? { p_notes: input.data.notes } : {}),
+    ...(input.data.complete_current_task && input.data.task_id
+      ? { p_task_id: input.data.task_id }
+      : {}),
+    ...(input.data.next_stage ? { p_next_stage: input.data.next_stage } : {}),
+    ...(input.data.next_task_due_at
+      ? { p_next_task_due_at: input.data.next_task_due_at.toISOString() }
+      : {}),
+    ...(input.data.next_task_notes
+      ? { p_next_task_notes: input.data.next_task_notes }
+      : {}),
   });
 
   if (error) {
     redirect(
-      `/talents/${talent.id}?${new URLSearchParams({ followUpError: "跟进记录保存失败，请稍后重试" })}`,
+      `/talents/${talentId}?${new URLSearchParams({ followUpError: "跟进处理失败，请检查当前任务状态后重试" })}`,
     );
   }
 
-  revalidatePath(`/talents/${talent.id}`);
-  redirect(`/talents/${talent.id}?followUpNotice=created`);
+  revalidatePath("/dashboard");
+  revalidatePath("/talents");
+  revalidatePath(`/talents/${talentId}`);
+  redirect(`/talents/${talentId}?followUpNotice=created`);
 }
