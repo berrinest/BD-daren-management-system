@@ -12,7 +12,7 @@ type Props = { continueProcessing?: boolean; nextResourceId?: string; processing
 const STATUS_HINTS: Partial<Record<(typeof RESOURCE_CONTACT_RESULTS)[number], string>> = {
   friend_request: "自动更新为“等待通过”，后天上午 10 点再次处理",
   reapplication: "自动更新为“等待通过”，后天上午 10 点再次处理",
-  accepted: "自动更新为“已联系”，后天上午 10 点再次处理",
+  accepted: "保存后将自动移入达人库",
   no_response: "自动更新为“已尝试添加”，后天上午 10 点再次处理",
 };
 
