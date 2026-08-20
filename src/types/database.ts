@@ -97,6 +97,84 @@ export type Database = {
         }
         Relationships: []
       }
+      talent_resources: {
+        Row: {
+          category: string
+          converted_at: string | null
+          converted_talent_id: string | null
+          created_at: string
+          discovered_at: string
+          follower_count: number | null
+          id: string
+          nickname: string
+          notes: string | null
+          platform_account: string | null
+          primary_platform: string
+          priority: string
+          profile_url: string | null
+          source: string | null
+          status: string
+          updated_at: string
+          user_id: string
+          wechat: string | null
+        }
+        Insert: {
+          category: string
+          converted_at?: string | null
+          converted_talent_id?: string | null
+          created_at?: string
+          discovered_at?: string
+          follower_count?: number | null
+          id?: string
+          nickname: string
+          notes?: string | null
+          platform_account?: string | null
+          primary_platform: string
+          priority?: string
+          profile_url?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+          wechat?: string | null
+        }
+        Update: {
+          category?: string
+          converted_at?: string | null
+          converted_talent_id?: string | null
+          created_at?: string
+          discovered_at?: string
+          follower_count?: number | null
+          id?: string
+          nickname?: string
+          notes?: string | null
+          platform_account?: string | null
+          primary_platform?: string
+          priority?: string
+          profile_url?: string | null
+          source?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+          wechat?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "talent_resources_converted_talent_owner_fk"
+            columns: ["converted_talent_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "talents"
+            referencedColumns: ["id", "user_id"]
+          },
+          {
+            foreignKeyName: "talent_resources_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       talents: {
         Row: {
           archived_at: string | null
@@ -221,6 +299,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      convert_talent_resource: {
+        Args: { p_resource_id: string }
+        Returns: string
+      }
       record_follow_up_and_schedule_next: {
         Args: {
           p_method: string

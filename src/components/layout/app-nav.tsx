@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const navigation = [
   { href: "/dashboard", label: "今日工作台", icon: "⌂" },
   { href: "/talents", label: "达人库", icon: "♙" },
+  { href: "/resources", label: "资源池", icon: "◎" },
   { href: "/tasks", label: "任务中心", icon: "◇" },
   { href: "/data", label: "数据管理", icon: "⇅" },
   { href: "/settings", label: "设置", icon: "⚙" },
