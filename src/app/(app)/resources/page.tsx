@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { ResourceTable } from "@/components/resources/resource-table";
@@ -28,7 +29,7 @@ export default async function ResourcesPage({ searchParams }: Props) {
   const { data: resources, error } = await query;
 
   return <main className="p-5 md:p-8"><section className="mx-auto max-w-6xl">
-    <p className="text-xs font-semibold tracking-[0.18em] text-[#668074]">DISCOVERY</p><h1 className="mt-2 text-2xl font-semibold text-[#26332e]">达人资源池</h1><p className="mt-2 text-sm text-slate-500">快速收集新发现的达人，筛选后转换到正式跟进流程。</p>
+    <div className="flex flex-wrap items-end justify-between gap-4"><div><p className="text-xs font-semibold tracking-[0.18em] text-[#668074]">DISCOVERY</p><h1 className="mt-2 text-2xl font-semibold text-[#26332e]">达人资源池</h1><p className="mt-2 text-sm text-slate-500">快速收集新发现的达人，筛选后转换到正式跟进流程。</p></div><Link className="rounded-lg border border-[#31594b] px-4 py-2.5 text-sm font-semibold text-[#31594b]" href="/resources/batch">批量录入</Link></div>
     {params.error ? <p className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{params.error}</p> : null}
     {params.notice === "created" ? <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">资源已录入。</p> : null}
     {params.notice === "batch-priority" ? <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">批量优先级处理完成：成功 {successCount} 条，未处理 {failedCount} 条。</p> : null}

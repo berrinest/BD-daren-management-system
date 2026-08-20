@@ -5,7 +5,93 @@ import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
 import { getShanghaiSecondDayAtTen } from "@/lib/formatters/date";
-import { bulkConvertTalentResourcesSchema, bulkDeleteTalentResourcesSchema, bulkUpdateTalentResourcePrioritySchema, convertTalentResourceSchema, createResourceContactRecordSchema, createTalentResourceSchema, updateTalentResourcePrioritySchema, updateTalentResourceProcessingStatusSchema } from "@/lib/validations";
+import { batchCreateTalentResourcesSchema, bulkConvertTalentResourcesSchema, bulkDeleteTalentResourcesSchema, bulkUpdateTalentResourcePrioritySchema, convertTalentResourceSchema, createResourceContactRecordSchema, createTalentResourceSchema, updateTalentResourcePrioritySchema, updateTalentResourceProcessingStatusSchema } from "@/lib/validations";
+
+export type BatchCreateResourcesState = {
+  error?: string;
+  imported?: number;
+  skipped?: number;
+};
+
+function resourceIdentityKeys(resource: {
+  nickname: string;
+  platform_account: string | null;
+  primary_platform: string;
+  profile_url: string | null;
+  wechat: string | null;
+}) {
+  const normalize = (value: string) => value.trim().toLocaleLowerCase();
+  const keys = new Set<string>();
+  if (resource.platform_account) keys.add(`account:${resource.primary_platform}:${normalize(resource.platform_account)}`);
+  if (resource.profile_url) keys.add(`url:${normalize(resource.profile_url)}`);
+  if (resource.wechat) keys.add(`wechat:${normalize(resource.wechat)}`);
+  keys.add(`name:${resource.primary_platform}:${normalize(resource.nickname)}`);
+  return keys;
+}
+
+export async function batchCreateTalentResources(
+  _previousState: BatchCreateResourcesState,
+  formData: FormData,
+): Promise<BatchCreateResourcesState> {
+  const raw = formData.get("resources");
+  if (typeof raw !== "string") return { error: "批量资源数据无效" };
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return { error: "批量资源数据无法解析" };
+  }
+  const input = batchCreateTalentResourcesSchema.safeParse(parsed);
+  if (!input.success) return { error: input.error.issues[0]?.message ?? "请检查批量资源" };
+
+  const supabase = await createClient();
+  const { data: claims } = await supabase.auth.getClaims();
+  const userId = claims?.claims?.sub;
+  if (!userId) redirect("/login");
+
+  const nicknames = [...new Set(input.data.map((item) => item.nickname))];
+  const accounts = [...new Set(input.data.flatMap((item) => item.platform_account ? [item.platform_account] : []))];
+  const wechats = [...new Set(input.data.flatMap((item) => item.wechat ? [item.wechat] : []))];
+  const urls = [...new Set(input.data.flatMap((item) => item.profile_url ? [item.profile_url] : []))];
+  const columns = "nickname,primary_platform,platform_account,profile_url,wechat";
+  const queries = [
+    supabase.from("talent_resources").select(columns).eq("user_id", userId).in("nickname", nicknames),
+    ...(accounts.length ? [supabase.from("talent_resources").select(columns).eq("user_id", userId).in("platform_account", accounts)] : []),
+    ...(wechats.length ? [supabase.from("talent_resources").select(columns).eq("user_id", userId).in("wechat", wechats)] : []),
+    ...(urls.length ? [supabase.from("talent_resources").select(columns).eq("user_id", userId).in("profile_url", urls)] : []),
+  ];
+  const queryResults = await Promise.all(queries);
+  if (queryResults.some((result) => result.error)) return { error: "重复检测失败，请稍后重试" };
+
+  const knownKeys = new Set<string>();
+  for (const result of queryResults) {
+    for (const resource of result.data ?? []) {
+      for (const key of resourceIdentityKeys(resource)) knownKeys.add(key);
+    }
+  }
+
+  const uniqueResources = [];
+  let skipped = 0;
+  for (const resource of input.data) {
+    const keys = resourceIdentityKeys(resource);
+    if ([...keys].some((key) => knownKeys.has(key))) {
+      skipped += 1;
+      continue;
+    }
+    uniqueResources.push({ ...resource, user_id: userId });
+    for (const key of keys) knownKeys.add(key);
+  }
+
+  if (uniqueResources.length) {
+    const { error } = await supabase.from("talent_resources").insert(uniqueResources);
+    if (error) return { error: "批量导入失败，未写入任何资源" };
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/resources");
+  return { imported: uniqueResources.length, skipped };
+}
 
 export async function createTalentResource(formData: FormData) {
   const input = createTalentResourceSchema.safeParse(Object.fromEntries(formData));

@@ -37,6 +37,11 @@ export const createTalentResourceSchema = z.object({
   notes: optionalText(2000),
 });
 
+export const batchCreateTalentResourcesSchema = z
+  .array(createTalentResourceSchema)
+  .min(1, "请至少录入一条资源")
+  .max(100, "单次最多导入 100 条资源");
+
 export const convertTalentResourceSchema = z.object({ resource_id: z.uuid() });
 
 export const updateTalentResourcePrioritySchema = z.object({
