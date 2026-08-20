@@ -7,15 +7,6 @@ import { createClient } from "@/lib/supabase/server";
 import { getShanghaiSecondDayAtTen } from "@/lib/formatters/date";
 import { bulkConvertTalentResourcesSchema, bulkDeleteTalentResourcesSchema, bulkUpdateTalentResourcePrioritySchema, convertTalentResourceSchema, createResourceContactRecordSchema, createTalentResourceSchema, updateTalentResourcePrioritySchema, updateTalentResourceProcessingStatusSchema } from "@/lib/validations";
 
-const RESOURCE_RESULT_TO_PROCESSING_STATUS = {
-  friend_request: "waiting_acceptance",
-  reapplication: "waiting_acceptance",
-  accepted: "contacted",
-  replied: "contacted",
-  rejected: "paused",
-  no_response: "attempted_add",
-} as const;
-
 export async function createTalentResource(formData: FormData) {
   const input = createTalentResourceSchema.safeParse(Object.fromEntries(formData));
   if (!input.success) redirect(`/resources?error=${encodeURIComponent(input.error.issues[0]?.message ?? "请检查资源信息")}`);
@@ -194,7 +185,9 @@ export async function bulkDeleteTalentResources(formData: FormData) {
 
 export async function createResourceContactRecord(formData: FormData) {
   const continueProcessing = formData.get("continue_processing") === "1";
+  const processingDone = formData.get("processing_done") === "1";
   const processingScope = formData.get("processing_scope") === "today" ? "today" : undefined;
+  const nextResourceId = convertTalentResourceSchema.safeParse({ resource_id: formData.get("next_resource_id") });
   const input = createResourceContactRecordSchema.safeParse({
     resource_id: formData.get("resource_id"),
     occurred_at: formData.get("occurred_at"),
@@ -237,58 +230,47 @@ export async function createResourceContactRecord(formData: FormData) {
     redirect(`/resources/${input.data.resource_id}?error=资源已转换或当前不可用`);
   }
 
-  const { error } = await supabase.from("resource_contact_records").insert({
-    user_id: userId,
-    resource_id: input.data.resource_id,
-    occurred_at: input.data.occurred_at.toISOString(),
-    method: input.data.method,
-    result: input.data.result,
-    notes: input.data.notes,
-  });
-  if (error) {
-    if (continueProcessing) {
-      const params = new URLSearchParams({ error: "联系记录保存失败，请稍后重试", resource: input.data.resource_id });
-      if (processingScope) params.set("scope", processingScope);
-      redirect(`/resources/process?${params}`);
-    }
-    redirect(`/resources/${input.data.resource_id}?error=联系记录保存失败，请稍后重试`);
-  }
-
-  const nextProcessingStatus = RESOURCE_RESULT_TO_PROCESSING_STATUS[
-    input.data.result as keyof typeof RESOURCE_RESULT_TO_PROCESSING_STATUS
-  ];
   const recommendedNextActionAt = input.data.result === "rejected"
     ? null
     : getShanghaiSecondDayAtTen(input.data.occurred_at).toISOString();
   const nextActionAt = input.data.next_action_at === undefined
     ? recommendedNextActionAt
     : input.data.next_action_at?.toISOString() ?? null;
-  let statusUpdated = false;
-  if (nextProcessingStatus || nextActionAt !== undefined) {
-    const { data: updatedResource } = await supabase
-      .from("talent_resources")
-      .update({
-        next_action_at: nextActionAt,
-        ...(nextProcessingStatus ? { processing_status: nextProcessingStatus } : {}),
-      })
-      .eq("id", input.data.resource_id)
-      .eq("user_id", userId)
-      .eq("status", "new")
-      .select("id")
-      .maybeSingle();
-    statusUpdated = Boolean(updatedResource);
+  const { data: rpcResult, error } = await supabase.rpc("record_resource_contact_and_maybe_convert", {
+    p_resource_id: input.data.resource_id,
+    p_occurred_at: input.data.occurred_at.toISOString(),
+    p_method: input.data.method,
+    p_result: input.data.result,
+    p_notes: input.data.notes ?? undefined,
+    p_next_action_at: nextActionAt ?? undefined,
+  });
+  const result = rpcResult?.[0];
+  if (error || !result?.resource_contact_record_id) {
+    if (continueProcessing) {
+      const params = new URLSearchParams({ error: "联系处理失败，未产生任何数据", resource: input.data.resource_id });
+      if (processingScope) params.set("scope", processingScope);
+      redirect(`/resources/process?${params}`);
+    }
+    redirect(`/resources/${input.data.resource_id}?error=联系处理失败，未产生任何数据`);
   }
 
   revalidatePath("/dashboard");
   revalidatePath("/resources");
   revalidatePath("/resources/process");
+  revalidatePath("/talents");
   revalidatePath(`/resources/${input.data.resource_id}`);
   const notice = new URLSearchParams({ notice: "contact-created" });
-  if (statusUpdated) notice.set("statusUpdated", "1");
+  notice.set("statusUpdated", "1");
+  if (result.converted_talent_id) notice.set("autoConverted", "1");
   if (continueProcessing) {
-    notice.set("after", input.data.resource_id);
+    if (nextResourceId.success) notice.set("resource", nextResourceId.data.resource_id);
+    else if (processingDone) notice.set("completed", "1");
     if (processingScope) notice.set("scope", processingScope);
     redirect(`/resources/process?${notice}`);
+  }
+  if (result.converted_talent_id) {
+    revalidatePath(`/talents/${result.converted_talent_id}`);
+    redirect(`/talents/${result.converted_talent_id}?resourceNotice=auto-converted`);
   }
   redirect(`/resources/${input.data.resource_id}?${notice}`);
 }

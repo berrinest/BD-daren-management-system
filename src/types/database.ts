@@ -387,6 +387,20 @@ export type Database = {
         Args: { p_resource_id: string }
         Returns: string
       }
+      record_resource_contact_and_maybe_convert: {
+        Args: {
+          p_method: string
+          p_next_action_at?: string
+          p_notes?: string
+          p_occurred_at: string
+          p_resource_id: string
+          p_result: string
+        }
+        Returns: {
+          converted_talent_id: string | null
+          resource_contact_record_id: string
+        }[]
+      }
       record_follow_up_and_schedule_next: {
         Args: {
           p_method: string

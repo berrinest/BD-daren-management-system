@@ -90,9 +90,9 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
   return (
     <main className="p-5 md:p-8"><section className="mx-auto max-w-5xl">
       <Link className="text-sm font-medium text-[#557064] hover:underline" href="/talents">← 返回达人库</Link>
-      {taskMessage.resourceNotice === "converted" ? (
+      {taskMessage.resourceNotice === "converted" || taskMessage.resourceNotice === "auto-converted" ? (
         <p className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">
-          资源已转换为正式达人，可以开始创建任务和跟进。
+          {taskMessage.resourceNotice === "auto-converted" ? "联系结果已保存，资源已自动转换为正式达人。" : "资源已转换为正式达人，可以开始创建任务和跟进。"}
         </p>
       ) : null}
       {focusedTask ? (
