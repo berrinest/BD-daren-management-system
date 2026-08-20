@@ -7,6 +7,17 @@ const optionalText = (max: number) => z.preprocess(
   z.string().trim().max(max).nullable(),
 );
 
+const optionalDateTime = z.preprocess(
+  (value) => value === "" || value === null ? null : value,
+  z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "请选择有效的下一次处理时间")
+    .transform((value) => new Date(`${value}:00+08:00`))
+    .refine((value) => !Number.isNaN(value.getTime()), "请选择有效的下一次处理时间")
+    .nullable()
+    .optional(),
+);
+
 export const createTalentResourceSchema = z.object({
   nickname: z.string().trim().min(1, "请输入达人昵称").max(100),
   primary_platform: z.enum(TALENT_PLATFORMS),
@@ -36,6 +47,7 @@ export const updateTalentResourcePrioritySchema = z.object({
 export const updateTalentResourceProcessingStatusSchema = z.object({
   resource_id: z.uuid(),
   processing_status: z.enum(RESOURCE_PROCESSING_STATUSES),
+  next_action_at: optionalDateTime,
 });
 
 const resourceIds = z.array(z.uuid()).min(1, "请至少选择一条资源").max(100, "单次最多处理 100 条资源");
@@ -59,4 +71,5 @@ export const createResourceContactRecordSchema = z.object({
   method: z.enum(RESOURCE_CONTACT_METHODS),
   result: z.enum(RESOURCE_CONTACT_RESULTS),
   notes: optionalText(2000),
+  next_action_at: optionalDateTime,
 });

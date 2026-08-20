@@ -67,9 +67,9 @@ export default async function DashboardPage() {
           <header className="flex items-center justify-between border-b border-[#edf0ee] px-5 py-4">
             <div>
               <h2 className="font-semibold text-[#35443e]">今日待处理资源</h2>
-              <p className="mt-1 text-xs text-slate-400">{pendingResourceCount} 位未转换资源，优先处理高价值达人</p>
+              <p className="mt-1 text-xs text-slate-400">{pendingResourceCount} 位资源已到期或今天需要处理</p>
             </div>
-            <div className="flex items-center gap-3"><Link className="rounded-lg bg-[#31594b] px-3 py-2 text-xs font-semibold text-white hover:bg-[#284a3e]" href="/resources/process">开始连续处理</Link><Link className="text-sm font-medium text-[#31594b] hover:underline" href="/resources">查看资源池</Link></div>
+            <div className="flex items-center gap-3"><Link className="rounded-lg bg-[#31594b] px-3 py-2 text-xs font-semibold text-white hover:bg-[#284a3e]" href="/resources/process?scope=today">开始处理今日资源</Link><Link className="text-sm font-medium text-[#31594b] hover:underline" href="/resources">查看资源池</Link></div>
           </header>
           {pendingResources.length === 0 ? (
             <div className="px-6 py-10 text-center"><p className="font-medium text-[#35443e]">没有待处理资源</p><p className="mt-2 text-sm text-slate-400">今天发现的新达人可以先录入资源池。</p></div>
@@ -80,6 +80,7 @@ export default async function DashboardPage() {
                   <div className="flex items-start justify-between gap-2"><h3 className="font-semibold text-[#35443e]">{resource.nickname}</h3><span className="rounded-full bg-[#eef4f1] px-2 py-1 text-[11px] text-[#48685b]">{getTalentPriorityLabel(resource.priority)}</span></div>
                   <p className="mt-2 text-xs text-slate-500">{getTalentPlatformLabel(resource.primary_platform)} · {resource.category}</p>
                   <p className="mt-2 truncate text-xs text-slate-400">来源：{resource.source || "未填写"}</p>
+                  <p className="mt-2 text-xs font-medium text-[#668074]">处理时间：{resource.next_action_at ? formatDateTime(resource.next_action_at) : "未安排"}</p>
                   <Link className="mt-4 inline-flex rounded-lg bg-[#31594b] px-3 py-2 text-xs font-semibold text-white hover:bg-[#284a3e]" href={`/resources/${resource.id}`}>进入处理</Link>
                 </article>
               ))}

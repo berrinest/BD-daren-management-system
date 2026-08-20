@@ -1,32 +1,9 @@
 import { redirect } from "next/navigation";
 
 import { createClient } from "@/lib/supabase/server";
+import { getShanghaiDayRange } from "@/lib/formatters/date";
 
 const HIGH_PRIORITY_LIMIT = 8;
-
-function getShanghaiDayRange(now = new Date()) {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    day: "2-digit",
-    month: "2-digit",
-    timeZone: "Asia/Shanghai",
-    year: "numeric",
-  })
-    .formatToParts(now)
-    .reduce<Record<string, string>>((result, part) => {
-      if (part.type !== "literal") result[part.type] = part.value;
-      return result;
-    }, {});
-
-  const todayStart = new Date(
-    `${parts.year}-${parts.month}-${parts.day}T00:00:00+08:00`,
-  );
-  const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
-
-  return {
-    todayStart: todayStart.toISOString(),
-    tomorrowStart: tomorrowStart.toISOString(),
-  };
-}
 
 export async function getDashboardData() {
   const supabase = await createClient();
@@ -68,13 +45,14 @@ export async function getDashboardData() {
       supabase
         .from("talent_resources")
         .select(
-          "id, nickname, primary_platform, category, priority, source, discovered_at",
+          "id, nickname, primary_platform, category, priority, processing_status, source, next_action_at",
           { count: "exact" },
         )
         .eq("user_id", userId)
         .eq("status", "new")
-        .order("priority", { ascending: true })
-        .order("discovered_at", { ascending: false })
+        .neq("processing_status", "paused")
+        .lt("next_action_at", tomorrowStart)
+        .order("next_action_at", { ascending: true })
         .limit(8),
     ]);
 

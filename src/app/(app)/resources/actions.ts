@@ -15,6 +15,15 @@ const RESOURCE_RESULT_TO_PROCESSING_STATUS = {
   no_response: "attempted_add",
 } as const;
 
+const RESOURCE_RESULT_TO_NEXT_ACTION_DAYS = {
+  friend_request: 2,
+  reapplication: 2,
+  accepted: 1,
+  replied: 1,
+  no_response: 2,
+  other: 1,
+} as const;
+
 export async function createTalentResource(formData: FormData) {
   const input = createTalentResourceSchema.safeParse(Object.fromEntries(formData));
   if (!input.success) redirect(`/resources?error=${encodeURIComponent(input.error.issues[0]?.message ?? "请检查资源信息")}`);
@@ -80,6 +89,7 @@ export async function updateTalentResourcePriority(formData: FormData) {
 
 export async function updateTalentResourceProcessingStatus(formData: FormData) {
   const input = updateTalentResourceProcessingStatusSchema.safeParse({
+    next_action_at: formData.get("next_action_at"),
     processing_status: formData.get("processing_status"),
     resource_id: formData.get("resource_id"),
   });
@@ -92,7 +102,12 @@ export async function updateTalentResourceProcessingStatus(formData: FormData) {
 
   const { data, error } = await supabase
     .from("talent_resources")
-    .update({ processing_status: input.data.processing_status })
+    .update({
+      processing_status: input.data.processing_status,
+      ...(input.data.next_action_at !== undefined
+        ? { next_action_at: input.data.next_action_at?.toISOString() ?? null }
+        : {}),
+    })
     .eq("id", input.data.resource_id)
     .eq("user_id", userId)
     .eq("status", "new")
@@ -161,12 +176,14 @@ export async function bulkConvertTalentResources(formData: FormData) {
 
 export async function createResourceContactRecord(formData: FormData) {
   const continueProcessing = formData.get("continue_processing") === "1";
+  const processingScope = formData.get("processing_scope") === "today" ? "today" : undefined;
   const input = createResourceContactRecordSchema.safeParse({
     resource_id: formData.get("resource_id"),
     occurred_at: formData.get("occurred_at"),
     method: formData.get("method"),
     result: formData.get("result"),
     notes: formData.get("notes"),
+    next_action_at: formData.get("next_action_at"),
   });
   const fallbackId = convertTalentResourceSchema.safeParse({ resource_id: formData.get("resource_id") });
   if (!input.success) {
@@ -174,6 +191,7 @@ export async function createResourceContactRecord(formData: FormData) {
     if (continueProcessing) {
       const params = new URLSearchParams({ error });
       if (fallbackId.success) params.set("resource", fallbackId.data.resource_id);
+      if (processingScope) params.set("scope", processingScope);
       redirect(`/resources/process?${params}`);
     }
     const fallbackPath = fallbackId.success ? `/resources/${fallbackId.data.resource_id}` : "/resources";
@@ -192,7 +210,14 @@ export async function createResourceContactRecord(formData: FormData) {
     .eq("user_id", userId)
     .eq("status", "new")
     .maybeSingle();
-  if (!resource) redirect(continueProcessing ? "/resources/process?error=资源已转换或当前不可用" : `/resources/${input.data.resource_id}?error=资源已转换或当前不可用`);
+  if (!resource) {
+    if (continueProcessing) {
+      const params = new URLSearchParams({ error: "资源已转换或当前不可用" });
+      if (processingScope) params.set("scope", processingScope);
+      redirect(`/resources/process?${params}`);
+    }
+    redirect(`/resources/${input.data.resource_id}?error=资源已转换或当前不可用`);
+  }
 
   const { error } = await supabase.from("resource_contact_records").insert({
     user_id: userId,
@@ -203,20 +228,34 @@ export async function createResourceContactRecord(formData: FormData) {
     notes: input.data.notes,
   });
   if (error) {
-    const errorPath = continueProcessing
-      ? `/resources/process?resource=${input.data.resource_id}&error=联系记录保存失败，请稍后重试`
-      : `/resources/${input.data.resource_id}?error=联系记录保存失败，请稍后重试`;
-    redirect(errorPath);
+    if (continueProcessing) {
+      const params = new URLSearchParams({ error: "联系记录保存失败，请稍后重试", resource: input.data.resource_id });
+      if (processingScope) params.set("scope", processingScope);
+      redirect(`/resources/process?${params}`);
+    }
+    redirect(`/resources/${input.data.resource_id}?error=联系记录保存失败，请稍后重试`);
   }
 
   const nextProcessingStatus = RESOURCE_RESULT_TO_PROCESSING_STATUS[
     input.data.result as keyof typeof RESOURCE_RESULT_TO_PROCESSING_STATUS
   ];
+  const recommendedDays = RESOURCE_RESULT_TO_NEXT_ACTION_DAYS[
+    input.data.result as keyof typeof RESOURCE_RESULT_TO_NEXT_ACTION_DAYS
+  ];
+  const recommendedNextActionAt = recommendedDays === undefined
+    ? null
+    : new Date(input.data.occurred_at.getTime() + recommendedDays * 24 * 60 * 60 * 1000).toISOString();
+  const nextActionAt = input.data.next_action_at === undefined
+    ? recommendedNextActionAt
+    : input.data.next_action_at?.toISOString() ?? null;
   let statusUpdated = false;
-  if (nextProcessingStatus) {
+  if (nextProcessingStatus || nextActionAt !== undefined) {
     const { data: updatedResource } = await supabase
       .from("talent_resources")
-      .update({ processing_status: nextProcessingStatus })
+      .update({
+        next_action_at: nextActionAt,
+        ...(nextProcessingStatus ? { processing_status: nextProcessingStatus } : {}),
+      })
       .eq("id", input.data.resource_id)
       .eq("user_id", userId)
       .eq("status", "new")
@@ -233,6 +272,7 @@ export async function createResourceContactRecord(formData: FormData) {
   if (statusUpdated) notice.set("statusUpdated", "1");
   if (continueProcessing) {
     notice.set("after", input.data.resource_id);
+    if (processingScope) notice.set("scope", processingScope);
     redirect(`/resources/process?${notice}`);
   }
   redirect(`/resources/${input.data.resource_id}?${notice}`);

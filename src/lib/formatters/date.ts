@@ -30,3 +30,21 @@ export function toShanghaiTomorrowDateTimeLocalValue() {
     new Date(new Date().getTime() + 24 * 60 * 60 * 1000),
   );
 }
+
+export function getShanghaiDayRange(now = new Date()) {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    day: "2-digit",
+    month: "2-digit",
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+  })
+    .formatToParts(now)
+    .reduce<Record<string, string>>((result, part) => {
+      if (part.type !== "literal") result[part.type] = part.value;
+      return result;
+    }, {});
+
+  const todayStart = new Date(`${parts.year}-${parts.month}-${parts.day}T00:00:00+08:00`);
+  const tomorrowStart = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
+  return { todayStart: todayStart.toISOString(), tomorrowStart: tomorrowStart.toISOString() };
+}

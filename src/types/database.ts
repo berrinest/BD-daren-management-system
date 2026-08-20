@@ -185,6 +185,7 @@ export type Database = {
           follower_count: number | null
           id: string
           nickname: string
+          next_action_at: string | null
           notes: string | null
           platform_account: string | null
           primary_platform: string
@@ -206,6 +207,7 @@ export type Database = {
           follower_count?: number | null
           id?: string
           nickname: string
+          next_action_at?: string | null
           notes?: string | null
           platform_account?: string | null
           primary_platform: string
@@ -227,6 +229,7 @@ export type Database = {
           follower_count?: number | null
           id?: string
           nickname?: string
+          next_action_at?: string | null
           notes?: string | null
           platform_account?: string | null
           primary_platform?: string
