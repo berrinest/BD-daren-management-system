@@ -284,6 +284,14 @@ export async function createResourceContactRecord(formData: FormData) {
   const continueProcessing = formData.get("continue_processing") === "1";
   const processingDone = formData.get("processing_done") === "1";
   const processingScope = formData.get("processing_scope") === "today" ? "today" : undefined;
+  const parseCount = (value: FormDataEntryValue | null) => typeof value === "string" && /^\d{1,6}$/.test(value) ? Number(value) : 0;
+  const processedCount = parseCount(formData.get("processed_count"));
+  const totalCount = Math.max(processedCount, parseCount(formData.get("total_count")));
+  const appendProgress = (params: URLSearchParams, increment = false) => {
+    if (!continueProcessing) return;
+    params.set("processed", String(Math.min(totalCount, processedCount + (increment ? 1 : 0))));
+    params.set("total", String(totalCount));
+  };
   const nextResourceId = convertTalentResourceSchema.safeParse({ resource_id: formData.get("next_resource_id") });
   const input = createResourceContactRecordSchema.safeParse({
     resource_id: formData.get("resource_id"),
@@ -300,6 +308,7 @@ export async function createResourceContactRecord(formData: FormData) {
       const params = new URLSearchParams({ error });
       if (fallbackId.success) params.set("resource", fallbackId.data.resource_id);
       if (processingScope) params.set("scope", processingScope);
+      appendProgress(params);
       redirect(`/resources/process?${params}`);
     }
     const fallbackPath = fallbackId.success ? `/resources/${fallbackId.data.resource_id}` : "/resources";
@@ -322,6 +331,7 @@ export async function createResourceContactRecord(formData: FormData) {
     if (continueProcessing) {
       const params = new URLSearchParams({ error: "资源已转换或当前不可用" });
       if (processingScope) params.set("scope", processingScope);
+      appendProgress(params);
       redirect(`/resources/process?${params}`);
     }
     redirect(`/resources/${input.data.resource_id}?error=资源已转换或当前不可用`);
@@ -346,6 +356,7 @@ export async function createResourceContactRecord(formData: FormData) {
     if (continueProcessing) {
       const params = new URLSearchParams({ error: "联系处理失败，未产生任何数据", resource: input.data.resource_id });
       if (processingScope) params.set("scope", processingScope);
+      appendProgress(params);
       redirect(`/resources/process?${params}`);
     }
     redirect(`/resources/${input.data.resource_id}?error=联系处理失败，未产生任何数据`);
@@ -363,6 +374,7 @@ export async function createResourceContactRecord(formData: FormData) {
     if (nextResourceId.success) notice.set("resource", nextResourceId.data.resource_id);
     else if (processingDone) notice.set("completed", "1");
     if (processingScope) notice.set("scope", processingScope);
+    appendProgress(notice, true);
     redirect(`/resources/process?${notice}`);
   }
   if (result.converted_talent_id) {
