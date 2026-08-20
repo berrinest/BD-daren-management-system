@@ -221,7 +221,25 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      record_follow_up_and_schedule_next: {
+        Args: {
+          p_method: string
+          p_next_stage?: string
+          p_next_task_due_at?: string
+          p_next_task_notes?: string
+          p_next_task_type?: string
+          p_notes?: string
+          p_occurred_at: string
+          p_result: string
+          p_talent_id: string
+          p_task_id?: string
+        }
+        Returns: {
+          completed_task_id: string
+          follow_up_record_id: string
+          next_task_id: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never
