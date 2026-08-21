@@ -18,6 +18,7 @@ export type DashboardWorkItem = {
   talentId?: string;
   taskId?: string;
   timing: Timing;
+  wechat?: string | null;
 };
 
 const timingRank: Record<Timing, number> = { overdue: 0, today: 1, new: 2 };
@@ -42,8 +43,8 @@ export async function getDashboardData() {
   const { todayStart, tomorrowStart } = getShanghaiDayRange();
   const [tasksResult, dueResourcesResult, newResourcesResult] = await Promise.all([
     supabase.from("tasks").select("id, talent_id, task_type, due_at, talents!tasks_talent_owner_fk!inner(id, nickname, primary_platform, priority, stage, archived_at)").eq("user_id", userId).eq("status", "pending").is("talents.archived_at", null).lt("due_at", tomorrowStart),
-    supabase.from("talent_resources").select("id, nickname, primary_platform, priority, processing_status, next_action_at").eq("user_id", userId).eq("status", "new").neq("processing_status", "paused").neq("processing_status", "pending_add").not("next_action_at", "is", null).lt("next_action_at", tomorrowStart),
-    supabase.from("talent_resources").select("id, nickname, primary_platform, priority, processing_status, discovered_at").eq("user_id", userId).eq("status", "new").eq("processing_status", "pending_add"),
+    supabase.from("talent_resources").select("id, nickname, primary_platform, priority, processing_status, next_action_at, wechat").eq("user_id", userId).eq("status", "new").neq("processing_status", "paused").neq("processing_status", "pending_add").not("next_action_at", "is", null).lt("next_action_at", tomorrowStart),
+    supabase.from("talent_resources").select("id, nickname, primary_platform, priority, processing_status, discovered_at, wechat").eq("user_id", userId).eq("status", "new").eq("processing_status", "pending_add"),
   ]);
 
   if (tasksResult.error || dueResourcesResult.error || newResourcesResult.error) throw new Error("Dashboard data could not be loaded");
@@ -73,6 +74,7 @@ export async function getDashboardData() {
     resourceId: resource.id,
     state: resource.processing_status,
     timing: resource.next_action_at && resource.next_action_at < todayStart ? "overdue" : "today",
+    wechat: resource.wechat,
   }));
 
   const newResourceItems: DashboardWorkItem[] = (newResourcesResult.data ?? []).map((resource) => ({
@@ -86,6 +88,7 @@ export async function getDashboardData() {
     resourceId: resource.id,
     state: resource.processing_status,
     timing: "new",
+    wechat: resource.wechat,
   }));
 
   const workItems = [...taskItems, ...dueResourceItems, ...newResourceItems].sort(compareWorkItems);

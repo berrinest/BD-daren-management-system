@@ -4,7 +4,7 @@ import {
 } from "@/app/(app)/tasks/actions";
 
 type TaskActionsProps = {
-  returnTo: "talent" | "tasks";
+  returnTo: "talent" | "tasks" | "work";
   talentId: string;
   taskId: string;
 };

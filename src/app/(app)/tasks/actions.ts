@@ -7,7 +7,10 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createTaskSchema, taskMutationSchema } from "@/lib/validations";
 
-function taskRedirect(returnTo: "talent" | "tasks", talentId: string, notice?: string) {
+function taskRedirect(returnTo: "talent" | "tasks" | "work", talentId: string, notice?: string) {
+  if (returnTo === "work") {
+    redirect(notice ? `/work?notice=task-${notice}` : "/work?error=任务处理失败，请刷新后重试");
+  }
   const path = returnTo === "talent" ? `/talents/${talentId}` : "/tasks";
   redirect(notice ? `${path}?taskNotice=${notice}` : path);
 }
@@ -79,6 +82,7 @@ export async function completeTask(formData: FormData) {
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/work");
   revalidatePath("/tasks");
   revalidatePath(`/talents/${input.data.talent_id}`);
   taskRedirect(input.data.return_to, input.data.talent_id, "completed");
@@ -112,7 +116,9 @@ export async function cancelTask(formData: FormData) {
     taskRedirect(input.data.return_to, input.data.talent_id);
   }
 
+  revalidatePath("/dashboard");
+  revalidatePath("/work");
   revalidatePath("/tasks");
   revalidatePath(`/talents/${input.data.talent_id}`);
-  taskRedirect(input.data.return_to, input.data.talent_id);
+  taskRedirect(input.data.return_to, input.data.talent_id, "cancelled");
 }

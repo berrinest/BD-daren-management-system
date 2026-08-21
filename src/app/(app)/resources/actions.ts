@@ -316,6 +316,7 @@ export async function bulkDeleteTalentResources(formData: FormData) {
 
 export async function createResourceContactRecord(formData: FormData) {
   const continueProcessing = formData.get("continue_processing") === "1";
+  const workQueue = formData.get("work_queue") === "1";
   const processingDone = formData.get("processing_done") === "1";
   const processingScope = formData.get("processing_scope") === "today" ? "today" : undefined;
   const parseCount = (value: FormDataEntryValue | null) => typeof value === "string" && /^\d{1,6}$/.test(value) ? Number(value) : 0;
@@ -338,6 +339,7 @@ export async function createResourceContactRecord(formData: FormData) {
   const fallbackId = convertTalentResourceSchema.safeParse({ resource_id: formData.get("resource_id") });
   if (!input.success) {
     const error = input.error.issues[0]?.message ?? "请检查联系记录";
+    if (workQueue) redirect(`/work?${new URLSearchParams({ error })}`);
     if (continueProcessing) {
       const params = new URLSearchParams({ error });
       if (fallbackId.success) params.set("resource", fallbackId.data.resource_id);
@@ -362,6 +364,7 @@ export async function createResourceContactRecord(formData: FormData) {
     .eq("status", "new")
     .maybeSingle();
   if (!resource) {
+    if (workQueue) redirect("/work?error=资源已转换或当前不可用");
     if (continueProcessing) {
       const params = new URLSearchParams({ error: "资源已转换或当前不可用" });
       if (processingScope) params.set("scope", processingScope);
@@ -387,6 +390,7 @@ export async function createResourceContactRecord(formData: FormData) {
   });
   const result = rpcResult?.[0];
   if (error || !result?.resource_contact_record_id) {
+    if (workQueue) redirect("/work?error=联系处理失败，未产生任何数据");
     if (continueProcessing) {
       const params = new URLSearchParams({ error: "联系处理失败，未产生任何数据", resource: input.data.resource_id });
       if (processingScope) params.set("scope", processingScope);
@@ -399,6 +403,7 @@ export async function createResourceContactRecord(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/resources");
   revalidatePath("/resources/process");
+  revalidatePath("/work");
   revalidatePath("/talents");
   revalidatePath(`/resources/${input.data.resource_id}`);
   const notice = new URLSearchParams({ notice: "contact-created" });
@@ -410,6 +415,12 @@ export async function createResourceContactRecord(formData: FormData) {
     if (processingScope) notice.set("scope", processingScope);
     appendProgress(notice, true);
     redirect(`/resources/process?${notice}`);
+  }
+  if (workQueue) {
+    redirect(`/work?${new URLSearchParams({
+      ...(result.converted_talent_id ? { autoConverted: "1" } : {}),
+      notice: "resource-completed",
+    })}`);
   }
   if (result.converted_talent_id) {
     revalidatePath(`/talents/${result.converted_talent_id}`);
