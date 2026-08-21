@@ -37,9 +37,11 @@ function extractDouyinProfile(expectedProfileId) {
     .find(Boolean) ?? "";
   const clean = (value, max) => String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max);
   const parseFollowerCount = (rawValue, unit = "") => {
-    const value = Number(String(rawValue).replaceAll(",", ""));
+    const normalized = String(rawValue ?? "").replaceAll(",", "").trim();
+    const match = normalized.match(/^([\d.]+)\s*(万|亿|[wW])?/u);
+    const value = Number(match?.[1] ?? normalized);
     if (!Number.isFinite(value) || value < 0) return null;
-    const normalizedUnit = unit.toLowerCase();
+    const normalizedUnit = (unit || match?.[2] || "").toLowerCase();
     if (normalizedUnit === "万" || normalizedUnit === "w") return Math.round(value * 10000);
     if (normalizedUnit === "亿") return Math.round(value * 100000000);
     return Math.round(value);
@@ -55,7 +57,7 @@ function extractDouyinProfile(expectedProfileId) {
       if (!value || typeof value !== "object") continue;
       for (const key of keys) {
         const found = value[key];
-        if (typeof found === "string" || typeof found === "number") return found;
+        if (typeof found === "number" || (typeof found === "string" && found.trim())) return found;
       }
       if (depth >= maxDepth) continue;
       for (const child of Object.values(value)) if (child && typeof child === "object") queue.push({ depth: depth + 1, value: child });
@@ -63,15 +65,17 @@ function extractDouyinProfile(expectedProfileId) {
     return null;
   };
   const findTargetProfile = (root) => {
-    const stack = [root];
+    const stack = [{ parent: null, value: root }];
     let inspected = 0;
     while (stack.length && inspected < 20000) {
-      const current = stack.pop();
+      const { parent, value: current } = stack.pop();
       inspected += 1;
       if (!current || typeof current !== "object") continue;
       const isTarget = identifierKeys.some((key) => String(current[key] ?? "") === expectedProfileId);
-      if (isTarget) return current;
-      for (const value of Object.values(current)) if (value && typeof value === "object") stack.push(value);
+      if (isTarget) return { container: parent, profile: current };
+      for (const value of Object.values(current)) {
+        if (value && typeof value === "object") stack.push({ parent: current, value });
+      }
     }
     return null;
   };
@@ -98,22 +102,37 @@ function extractDouyinProfile(expectedProfileId) {
   const title = getMeta('meta[property="og:title"]', 'meta[name="twitter:title"]') || document.title;
   const rawNicknameFromTitle = title.replace(/\s*[-_|]\s*抖音.*$/u, "").replace(/的抖音主页.*$/u, "").trim();
   const nicknameFromTitle = /^(抖音|记录美好生活)$/u.test(rawNicknameFromTitle) ? "" : rawNicknameFromTitle;
-  const structuredNickname = readValue(structured, ["nickname", "nickName"]);
+  const structuredNickname = readValue(structured?.profile, ["nickname", "nickName"]);
   const nickname = clean(
     structuredNickname
       || nicknameFromTitle,
     100,
   );
-  const accountMatch = profileText.match(/抖音号\s*[:：]\s*([^\s]+)/u);
-  const platformAccount = clean(readValue(structured, ["uniqueId", "unique_id", "shortId", "short_id"]) || accountMatch?.[1], 200);
-  const followerMatch = profileText.match(/([\d,.]+(?:\.\d+)?)\s*(万|亿|[wW])?\s*粉丝/u);
-  const structuredFollowers = readValue(structured, ["followerCount", "follower_count"]);
+  const metaDescription = getMeta('meta[property="og:description"]', 'meta[name="description"]');
+  const publicProfileText = `${profileText}\n${metaDescription}`;
+  const accountMatch = publicProfileText.match(/抖音号\s*[:：]\s*([^\s,，;；]+)/u);
+  const platformAccount = clean(
+    readValue(structured?.profile, ["uniqueId", "unique_id", "uniqueID", "shortId", "short_id", "displayId", "display_id"])
+      || accountMatch?.[1],
+    200,
+  );
+  const followerMatch = publicProfileText.match(/([\d,.]+(?:\.\d+)?)\s*(万|亿|[wW])?\s*粉丝/u)
+    || publicProfileText.match(/粉丝(?:数|量)?\s*[:：]?\s*([\d,.]+(?:\.\d+)?)\s*(万|亿|[wW])?/u);
+  const followerKeys = ["followerCount", "follower_count", "fansCount", "fans_count", "fans"];
+  const stats = structured?.container && typeof structured.container === "object"
+    ? structured.container.stats
+      || structured.container.statsV2
+      || structured.container.userStats
+      || structured.container.user_stats
+    : null;
+  const structuredFollowers = readValue(structured?.profile, followerKeys)
+    ?? readValue(stats, followerKeys, 2);
   const followerCount = structuredFollowers !== null
     ? parseFollowerCount(structuredFollowers)
     : followerMatch ? parseFollowerCount(followerMatch[1], followerMatch[2]) : null;
   const description = clean(
-    readValue(structured, ["signature", "description", "bio"])
-      || getMeta('meta[property="og:description"]', 'meta[name="description"]'),
+    readValue(structured?.profile, ["signature", "description", "bio"])
+      || metaDescription,
     1000,
   );
 
