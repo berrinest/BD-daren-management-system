@@ -176,12 +176,17 @@ function collectDouyinProfile() {
   const accountMatch = publicProfileText.match(/抖音号\s*[:：]\s*([^\s,，;；]+)/u);
   const followerMatch = publicProfileText.match(/([\d,.]+(?:\.\d+)?)\s*(万|亿|[wW])?\s*粉丝/u)
     || publicProfileText.match(/粉丝(?:数|量)?\s*[:：]?\s*([\d,.]+(?:\.\d+)?)\s*(万|亿|[wW])?/u);
-  const structuredFollower = structuredCandidates.find(({ path }) => /\.(followerCount|fansCount)$/iu.test(path));
+  const structuredFollower = typeof structuredProfile?.followerCount === "number"
+    ? { path: "user.followerCount", value: structuredProfile.followerCount }
+    : typeof structuredProfile?.mplatformFollowersCount === "number"
+      ? { path: "user.mplatformFollowersCount", value: structuredProfile.mplatformFollowersCount }
+      : null;
 
   return {
     debug: readPageDebug(profileId, visibleText, {
       fieldCandidates: structuredCandidates,
       matched: Boolean(structuredProfile),
+      selectedFollowerField: structuredFollower,
       scriptIndex: paceResult?.scriptIndex ?? null,
       type: "self.__pace_f",
     }),
