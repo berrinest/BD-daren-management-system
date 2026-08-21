@@ -28,13 +28,6 @@ const elements = new Map([
 let requestedEndpoint = "";
 let requestedPayload = null;
 const chrome = {
-  permissions: { async request() { return true; } },
-  scripting: {
-    async executeScript(options) {
-      assert.equal(options.files?.join(","), "content/app-bridge.js");
-      return [];
-    },
-  },
   storage: {
     local: {
       async get() { return {}; },

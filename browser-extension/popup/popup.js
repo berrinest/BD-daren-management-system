@@ -76,14 +76,12 @@ async function loadSettings() {
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   sendButton.disabled = true;
-  setStatus("正在申请项目网站权限…");
+  setStatus("正在准备采集资料…");
   try {
     const baseUrl = new URL(fields.webAppUrl.value.trim());
     if (!['http:', 'https:'].includes(baseUrl.protocol)) throw new Error("系统地址必须使用 http 或 https");
     const webAppUrl = baseUrl.href.replace(/\/$/, "");
     const originPattern = `${baseUrl.origin}/*`;
-    const hasPermission = await chrome.permissions.request({ origins: [originPattern] });
-    if (!hasPermission) throw new Error("需要项目网站权限才能后台采集");
     await chrome.storage.local.set({ webAppUrl });
     const followerCount = parseFollowerCount(fields.followerCount.value);
     const payload = {
@@ -104,19 +102,20 @@ form.addEventListener("submit", async (event) => {
     if (!appTab?.id) throw new Error("请先打开并登录 BD 系统，再点击采集");
 
     const endpoint = `${webAppUrl}/api/resources/capture`;
-    setStatus("正在连接 BD 系统标签页…");
-    await Promise.race([
-      chrome.scripting.executeScript({
-        files: ["content/app-bridge.js"],
-        target: { tabId: appTab.id },
-      }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("无法连接 BD 系统标签页")), 5000)),
-    ]);
     setStatus("正在写入资源池…");
-    const response = await Promise.race([
-      chrome.tabs.sendMessage(appTab.id, { endpoint, payload, type: "captureTalentResource" }),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("后台采集超时，请稍后重试")), 20000)),
-    ]);
+    let response;
+    try {
+      response = await Promise.race([
+        chrome.tabs.sendMessage(appTab.id, { endpoint, payload, type: "captureTalentResource" }),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("后台采集超时，请稍后重试")), 20000)),
+      ]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (message.includes("Receiving end does not exist") || message.includes("Could not establish connection")) {
+        throw new Error("连接脚本未加载，请重新加载扩展后刷新 BD 系统标签页");
+      }
+      throw error;
+    }
     if (!response?.ok) throw new Error(response?.error || `采集失败（${response?.status ?? "未知状态"}）`);
     setStatus(response.message || "已加入资源池");
     sendButton.textContent = "已采集";

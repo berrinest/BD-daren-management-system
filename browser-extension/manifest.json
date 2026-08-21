@@ -5,13 +5,7 @@
   "version": "0.1.1",
   "permissions": [
     "activeTab",
-    "scripting",
     "storage"
-  ],
-  "optional_host_permissions": [
-    "https://*.vercel.app/*",
-    "http://localhost/*",
-    "http://127.0.0.1/*"
   ],
   "content_scripts": [
     {
@@ -21,6 +15,17 @@
       ],
       "js": [
         "content/content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://bd-daren-management-system.vercel.app/*",
+        "http://localhost/*",
+        "http://127.0.0.1/*"
+      ],
+      "js": [
+        "content/app-bridge.js"
       ],
       "run_at": "document_idle"
     }
