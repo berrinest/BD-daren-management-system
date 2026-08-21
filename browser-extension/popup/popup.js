@@ -21,6 +21,23 @@ function setStatus(message, error = false) {
   fields.status.classList.toggle("error", error);
 }
 
+function formatFollowerCount(value) {
+  const count = Number(value);
+  if (!Number.isFinite(count) || count < 0) return "";
+  if (count >= 100000000) return `${Number((count / 100000000).toFixed(1))}亿`;
+  if (count >= 10000) return `${Number((count / 10000).toFixed(1))}万`;
+  return String(Math.round(count));
+}
+
+function parseFollowerCount(value) {
+  const normalized = String(value ?? "").replaceAll(",", "").trim();
+  if (!normalized) return null;
+  const match = normalized.match(/^([\d]+(?:\.\d+)?)\s*(万|亿)?$/u);
+  if (!match) throw new Error("粉丝数量请填写数字或约数，例如 124.6万");
+  const multiplier = match[2] === "亿" ? 100000000 : match[2] === "万" ? 10000 : 1;
+  return Math.round(Number(match[1]) * multiplier);
+}
+
 async function collectCurrentPage() {
   sendButton.disabled = true;
   setStatus("正在读取当前公开页面…");
@@ -37,12 +54,12 @@ async function collectCurrentPage() {
     fields.nickname.value = profile.nickname;
     fields.platform.value = profile.platform;
     fields.platformAccount.value = profile.platformAccount;
-    fields.followerCount.value = profile.followerCount ?? "";
+    fields.followerCount.value = formatFollowerCount(profile.followerCount);
     fields.description.value = profile.description;
     fields.profileUrl.value = profile.profileUrl;
     fields.debugOutput.textContent = JSON.stringify(debug, null, 2);
     sendButton.disabled = false;
-    setStatus(profile.nickname ? "已读取公开资料，请确认并查看调试结果。" : "未识别到昵称，请查看调试结果并手动补充。");
+    setStatus(profile.nickname ? "已读取公开资料，点击采集后在系统中确认保存。" : "未识别到昵称，请手动补充后采集。");
   } catch (error) {
     fields.debugOutput.textContent = "未取得页面调试结果。重新加载扩展后，请刷新达人主页再试。";
     const message = error instanceof Error ? error.message : "页面读取失败";
@@ -69,7 +86,8 @@ form.addEventListener("submit", async (event) => {
       primary_platform: fields.platform.value,
       profile_url: fields.profileUrl.value,
     });
-    if (fields.followerCount.value) params.set("follower_count", fields.followerCount.value);
+    const followerCount = parseFollowerCount(fields.followerCount.value);
+    if (followerCount !== null) params.set("follower_count", String(followerCount));
     await chrome.tabs.create({ url: `${webAppUrl}/resources/capture?${params}` });
     window.close();
   } catch (error) {
