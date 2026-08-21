@@ -8,7 +8,7 @@ import { getShanghaiSecondDayAtTen } from "@/lib/formatters/date";
 import { RESOURCE_SOURCE_TYPE_LABELS } from "@/lib/constants";
 import { findResourceDuplicate, getKnownResourceIdentities, type KnownResourceIdentity } from "@/lib/resources/duplicates";
 import { normalizeProfileUrl } from "@/lib/resources/identity";
-import { batchCreateTalentResourcesSchema, bulkConvertTalentResourcesSchema, bulkDeleteTalentResourcesSchema, bulkUpdateTalentResourcePrioritySchema, convertTalentResourceSchema, createResourceContactRecordSchema, createTalentResourceSchema, resourceSourceInputSchema, updateTalentResourcePrioritySchema, updateTalentResourceProcessingStatusSchema } from "@/lib/validations";
+import { batchCreateTalentResourcesSchema, bulkConvertTalentResourcesSchema, bulkDeleteTalentResourcesSchema, bulkUpdateTalentResourcePrioritySchema, convertTalentResourceSchema, createResourceContactRecordSchema, createTalentResourceSchema, resourceSourceInputSchema, updateTalentResourcePrioritySchema, updateTalentResourceProcessingStatusSchema, updateTalentResourceWechatSchema } from "@/lib/validations";
 
 export type BatchCreateResourcesState = {
   duplicates?: string[];
@@ -172,6 +172,38 @@ export async function updateTalentResourcePriority(formData: FormData) {
   revalidatePath(`/resources/${input.data.resource_id}`);
   if (returnToWork) redirect("/work?notice=resource-priority-updated");
   redirect(`/resources/${input.data.resource_id}?notice=priority-updated${returnToWork ? "&returnTo=work" : ""}`);
+}
+
+export async function updateTalentResourceWechat(formData: FormData) {
+  const input = updateTalentResourceWechatSchema.safeParse({
+    resource_id: formData.get("resource_id"),
+    wechat: formData.get("wechat"),
+  });
+  if (!input.success) redirect("/resources?error=微信号信息无效");
+
+  const supabase = await createClient();
+  const { data: claims } = await supabase.auth.getClaims();
+  const userId = claims?.claims?.sub;
+  if (!userId) redirect("/login");
+
+  const { data, error } = await supabase
+    .from("talent_resources")
+    .update({ wechat: input.data.wechat })
+    .eq("id", input.data.resource_id)
+    .eq("user_id", userId)
+    .eq("status", "new")
+    .select("id")
+    .maybeSingle();
+
+  if (error || !data) {
+    redirect(`/resources/${input.data.resource_id}?error=资源已转换或当前不可用`);
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/work");
+  revalidatePath("/resources");
+  revalidatePath(`/resources/${input.data.resource_id}`);
+  redirect(`/resources/${input.data.resource_id}?notice=wechat-updated`);
 }
 
 export async function updateTalentResourceProcessingStatus(formData: FormData) {

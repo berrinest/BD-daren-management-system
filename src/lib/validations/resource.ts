@@ -70,6 +70,11 @@ export const updateTalentResourcePrioritySchema = z.object({
   priority: z.enum(TALENT_PRIORITIES),
 });
 
+export const updateTalentResourceWechatSchema = z.object({
+  resource_id: z.uuid(),
+  wechat: optionalText(100),
+});
+
 export const updateTalentResourceProcessingStatusSchema = z.object({
   resource_id: z.uuid(),
   processing_status: z.enum(RESOURCE_PROCESSING_STATUSES),
