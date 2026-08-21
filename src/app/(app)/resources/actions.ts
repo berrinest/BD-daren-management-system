@@ -6,33 +6,56 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getShanghaiSecondDayAtTen } from "@/lib/formatters/date";
 import { RESOURCE_SOURCE_TYPE_LABELS } from "@/lib/constants";
-import { normalizeProfileUrl, resourceIdentityKeys, type ResourceIdentity } from "@/lib/resources/identity";
+import { getResourceIdentityMatches, normalizeProfileUrl, type ResourceIdentity } from "@/lib/resources/identity";
 import { batchCreateTalentResourcesSchema, bulkConvertTalentResourcesSchema, bulkDeleteTalentResourcesSchema, bulkUpdateTalentResourcePrioritySchema, convertTalentResourceSchema, createResourceContactRecordSchema, createTalentResourceSchema, resourceSourceInputSchema, updateTalentResourcePrioritySchema, updateTalentResourceProcessingStatusSchema } from "@/lib/validations";
 
 export type BatchCreateResourcesState = {
+  duplicates?: string[];
   error?: string;
   imported?: number;
   skipped?: number;
 };
 
-async function getKnownIdentityKeys(
+type KnownIdentity = ResourceIdentity & {
+  id: string;
+  kind: "resource" | "talent";
+};
+
+async function getKnownIdentities(
   supabase: Awaited<ReturnType<typeof createClient>>,
   userId: string,
-  resources: ResourceIdentity[],
 ) {
-  const platforms = [...new Set(resources.map((resource) => resource.primary_platform))];
-  const columns = "nickname,primary_platform,platform_account,profile_url,wechat";
-  const [resourceResult, talentResult] = await Promise.all([
-    supabase.from("talent_resources").select(columns).eq("user_id", userId).in("primary_platform", platforms),
-    supabase.from("talents").select(columns).eq("user_id", userId).in("primary_platform", platforms),
-  ]);
-  if (resourceResult.error || talentResult.error) return null;
+  const columns = "id,nickname,primary_platform,platform_account,profile_url,wechat";
+  const pageSize = 1000;
+  const known: KnownIdentity[] = [];
+  let offset = 0;
 
-  const keys = new Set<string>();
-  for (const item of [...(resourceResult.data ?? []), ...(talentResult.data ?? [])]) {
-    for (const key of resourceIdentityKeys(item)) keys.add(key);
+  while (true) {
+    const [resourceResult, talentResult] = await Promise.all([
+      supabase.from("talent_resources").select(columns).eq("user_id", userId).range(offset, offset + pageSize - 1),
+      supabase.from("talents").select(columns).eq("user_id", userId).range(offset, offset + pageSize - 1),
+    ]);
+    if (resourceResult.error || talentResult.error) return null;
+
+    const resources = resourceResult.data ?? [];
+    const talents = talentResult.data ?? [];
+    known.push(
+      ...resources.map((item) => ({ ...item, kind: "resource" as const })),
+      ...talents.map((item) => ({ ...item, kind: "talent" as const })),
+    );
+    if (resources.length < pageSize && talents.length < pageSize) break;
+    offset += pageSize;
   }
-  return keys;
+
+  return known;
+}
+
+function findDuplicate(resource: ResourceIdentity, known: KnownIdentity[]) {
+  for (const existing of known) {
+    const dimensions = getResourceIdentityMatches(resource, existing);
+    if (dimensions.length) return { dimensions, existing };
+  }
+  return null;
 }
 
 export async function batchCreateTalentResources(
@@ -57,19 +80,23 @@ export async function batchCreateTalentResources(
   if (!userId) redirect("/login");
 
   const normalizedResources = input.data.map((resource) => ({ ...resource, profile_url: normalizeProfileUrl(resource.profile_url) }));
-  const knownKeys = await getKnownIdentityKeys(supabase, userId, normalizedResources);
-  if (!knownKeys) return { error: "重复检测失败，请稍后重试" };
+  const known = await getKnownIdentities(supabase, userId);
+  if (!known) return { error: "重复检测失败，请稍后重试" };
 
   const uniqueResources = [];
+  const duplicates: string[] = [];
   let skipped = 0;
   for (const resource of normalizedResources) {
-    const keys = resourceIdentityKeys(resource, Boolean(resource.profile_url));
-    if ([...keys].some((key) => knownKeys.has(key))) {
+    const duplicate = findDuplicate(resource, known);
+    if (duplicate) {
       skipped += 1;
+      if (duplicates.length < 10) {
+        duplicates.push(`${resource.nickname}：${duplicate.dimensions.join("、")}与${duplicate.existing.kind === "resource" ? "资源池" : "达人库"}“${duplicate.existing.nickname}”重复`);
+      }
       continue;
     }
     uniqueResources.push({ ...resource, user_id: userId });
-    for (const key of keys) knownKeys.add(key);
+    known.push({ ...resource, id: `pending-${uniqueResources.length}`, kind: "resource" });
   }
 
   if (uniqueResources.length) {
@@ -79,7 +106,7 @@ export async function batchCreateTalentResources(
 
   revalidatePath("/dashboard");
   revalidatePath("/resources");
-  return { imported: uniqueResources.length, skipped };
+  return { duplicates, imported: uniqueResources.length, skipped };
 }
 
 export async function createTalentResource(formData: FormData) {
@@ -106,11 +133,18 @@ export async function createTalentResource(formData: FormData) {
   const userId = data?.claims?.sub;
   if (!userId) redirect("/login");
 
-  const knownKeys = await getKnownIdentityKeys(supabase, userId, [input.data]);
-  if (!knownKeys) redirect("/resources?error=重复检测失败，请稍后重试");
-  const inputKeys = resourceIdentityKeys(input.data, Boolean(input.data.profile_url));
-  if ([...inputKeys].some((key) => knownKeys.has(key))) {
-    redirect("/resources?error=该达人已存在于资源池或达人库，已阻止重复录入");
+  const known = await getKnownIdentities(supabase, userId);
+  if (!known) redirect("/resources?error=重复检测失败，请稍后重试");
+  const duplicate = findDuplicate(input.data, known);
+  if (duplicate) {
+    const params = new URLSearchParams({
+      duplicateFields: duplicate.dimensions.join("、"),
+      duplicateId: duplicate.existing.id,
+      duplicateKind: duplicate.existing.kind,
+      duplicateNickname: duplicate.existing.nickname,
+      error: "发现重复资源，已阻止录入",
+    });
+    redirect(`/resources?${params}`);
   }
 
   const { error } = await supabase.from("talent_resources").insert({ ...input.data, user_id: userId });

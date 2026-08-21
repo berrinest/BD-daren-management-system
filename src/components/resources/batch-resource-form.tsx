@@ -24,7 +24,7 @@ export function BatchResourceForm() {
 
   return <div className="mt-6 grid gap-6">
     {state.error ? <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">{state.error}</p> : null}
-    {state.imported !== undefined ? <p className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">导入完成：新增 {state.imported} 条，跳过重复 {state.skipped ?? 0} 条。</p> : null}
+    {state.imported !== undefined ? <div className="rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800"><p>导入完成：新增 {state.imported} 条，跳过重复 {state.skipped ?? 0} 条。</p>{state.duplicates?.length ? <div className="mt-2 border-t border-emerald-200 pt-2"><p className="font-medium">重复明细：</p><ul className="mt-1 list-inside list-disc space-y-1">{state.duplicates.map((duplicate) => <li key={duplicate}>{duplicate}</li>)}</ul>{(state.skipped ?? 0) > state.duplicates.length ? <p className="mt-1 text-xs">仅展示前 {state.duplicates.length} 条重复信息。</p> : null}</div> : null}</div> : null}
     <section className="rounded-2xl border border-[#e7ebe8] bg-white p-5 shadow-sm">
       <h2 className="font-semibold text-[#26332e]">粘贴资源数据</h2>
       <p className="mt-2 text-sm leading-6 text-slate-500">每行一个达人，字段统一使用分号“;”或中文分号“；”分隔。</p>

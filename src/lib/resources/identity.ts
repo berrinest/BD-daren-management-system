@@ -19,6 +19,8 @@ export type ResourceIdentity = {
   wechat: string | null;
 };
 
+export type ResourceIdentityDimension = "主页链接" | "平台账号" | "微信号" | "同平台昵称";
+
 export function normalizeProfileUrl(value: string | null) {
   if (!value) return null;
   try {
@@ -35,15 +37,25 @@ export function normalizeProfileUrl(value: string | null) {
   }
 }
 
-export function resourceIdentityKeys(resource: ResourceIdentity, profileUrlIsPrimary = false) {
+export function resourceIdentityEntries(resource: ResourceIdentity) {
   const normalize = (value: string) => value.trim().toLocaleLowerCase();
-  const keys = new Set<string>();
+  const entries = new Map<string, ResourceIdentityDimension>();
   if (resource.profile_url) {
-    keys.add(`url:${normalize(normalizeProfileUrl(resource.profile_url) ?? resource.profile_url)}`);
-    if (profileUrlIsPrimary) return keys;
+    entries.set(`url:${normalize(normalizeProfileUrl(resource.profile_url) ?? resource.profile_url)}`, "主页链接");
   }
-  if (resource.platform_account) keys.add(`account:${resource.primary_platform}:${normalize(resource.platform_account)}`);
-  if (resource.wechat) keys.add(`wechat:${normalize(resource.wechat)}`);
-  keys.add(`name:${resource.primary_platform}:${normalize(resource.nickname)}`);
-  return keys;
+  if (resource.platform_account) entries.set(`account:${resource.primary_platform}:${normalize(resource.platform_account)}`, "平台账号");
+  if (resource.wechat) entries.set(`wechat:${normalize(resource.wechat)}`, "微信号");
+  entries.set(`name:${resource.primary_platform}:${normalize(resource.nickname)}`, "同平台昵称");
+  return entries;
+}
+
+export function resourceIdentityKeys(resource: ResourceIdentity) {
+  return new Set(resourceIdentityEntries(resource).keys());
+}
+
+export function getResourceIdentityMatches(resource: ResourceIdentity, existing: ResourceIdentity) {
+  const existingKeys = resourceIdentityKeys(existing);
+  return [...resourceIdentityEntries(resource)]
+    .filter(([key]) => existingKeys.has(key))
+    .map(([, dimension]) => dimension);
 }
