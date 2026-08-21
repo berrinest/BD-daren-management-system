@@ -5,7 +5,13 @@
   "version": "0.1.1",
   "permissions": [
     "activeTab",
+    "scripting",
     "storage"
+  ],
+  "optional_host_permissions": [
+    "https://*.vercel.app/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
   ],
   "content_scripts": [
     {

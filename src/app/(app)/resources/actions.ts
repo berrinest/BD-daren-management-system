@@ -6,7 +6,8 @@ import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getShanghaiSecondDayAtTen } from "@/lib/formatters/date";
 import { RESOURCE_SOURCE_TYPE_LABELS } from "@/lib/constants";
-import { getResourceIdentityMatches, normalizeProfileUrl, type ResourceIdentity } from "@/lib/resources/identity";
+import { findResourceDuplicate, getKnownResourceIdentities, type KnownResourceIdentity } from "@/lib/resources/duplicates";
+import { normalizeProfileUrl } from "@/lib/resources/identity";
 import { batchCreateTalentResourcesSchema, bulkConvertTalentResourcesSchema, bulkDeleteTalentResourcesSchema, bulkUpdateTalentResourcePrioritySchema, convertTalentResourceSchema, createResourceContactRecordSchema, createTalentResourceSchema, resourceSourceInputSchema, updateTalentResourcePrioritySchema, updateTalentResourceProcessingStatusSchema } from "@/lib/validations";
 
 export type BatchCreateResourcesState = {
@@ -15,48 +16,6 @@ export type BatchCreateResourcesState = {
   imported?: number;
   skipped?: number;
 };
-
-type KnownIdentity = ResourceIdentity & {
-  id: string;
-  kind: "resource" | "talent";
-};
-
-async function getKnownIdentities(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  userId: string,
-) {
-  const columns = "id,nickname,primary_platform,platform_account,profile_url,wechat";
-  const pageSize = 1000;
-  const known: KnownIdentity[] = [];
-  let offset = 0;
-
-  while (true) {
-    const [resourceResult, talentResult] = await Promise.all([
-      supabase.from("talent_resources").select(columns).eq("user_id", userId).range(offset, offset + pageSize - 1),
-      supabase.from("talents").select(columns).eq("user_id", userId).range(offset, offset + pageSize - 1),
-    ]);
-    if (resourceResult.error || talentResult.error) return null;
-
-    const resources = resourceResult.data ?? [];
-    const talents = talentResult.data ?? [];
-    known.push(
-      ...resources.map((item) => ({ ...item, kind: "resource" as const })),
-      ...talents.map((item) => ({ ...item, kind: "talent" as const })),
-    );
-    if (resources.length < pageSize && talents.length < pageSize) break;
-    offset += pageSize;
-  }
-
-  return known;
-}
-
-function findDuplicate(resource: ResourceIdentity, known: KnownIdentity[]) {
-  for (const existing of known) {
-    const dimensions = getResourceIdentityMatches(resource, existing);
-    if (dimensions.length) return { dimensions, existing };
-  }
-  return null;
-}
 
 export async function batchCreateTalentResources(
   _previousState: BatchCreateResourcesState,
@@ -80,14 +39,14 @@ export async function batchCreateTalentResources(
   if (!userId) redirect("/login");
 
   const normalizedResources = input.data.map((resource) => ({ ...resource, profile_url: normalizeProfileUrl(resource.profile_url) }));
-  const known = await getKnownIdentities(supabase, userId);
+  const known = await getKnownResourceIdentities(supabase, userId);
   if (!known) return { error: "重复检测失败，请稍后重试" };
 
   const uniqueResources = [];
   const duplicates: string[] = [];
   let skipped = 0;
   for (const resource of normalizedResources) {
-    const duplicate = findDuplicate(resource, known);
+    const duplicate = findResourceDuplicate(resource, known);
     if (duplicate) {
       skipped += 1;
       if (duplicates.length < 10) {
@@ -96,7 +55,7 @@ export async function batchCreateTalentResources(
       continue;
     }
     uniqueResources.push({ ...resource, user_id: userId });
-    known.push({ ...resource, id: `pending-${uniqueResources.length}`, kind: "resource" });
+    known.push({ ...resource, id: `pending-${uniqueResources.length}`, kind: "resource" } as KnownResourceIdentity);
   }
 
   if (uniqueResources.length) {
@@ -134,9 +93,9 @@ export async function createTalentResource(formData: FormData) {
   const userId = data?.claims?.sub;
   if (!userId) redirect("/login");
 
-  const known = await getKnownIdentities(supabase, userId);
+  const known = await getKnownResourceIdentities(supabase, userId);
   if (!known) redirect("/resources?error=重复检测失败，请稍后重试");
-  const duplicate = findDuplicate(input.data, known);
+  const duplicate = findResourceDuplicate(input.data, known);
   if (duplicate) {
     const params = new URLSearchParams({
       duplicateFields: duplicate.dimensions.join("、"),

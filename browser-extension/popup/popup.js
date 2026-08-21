@@ -2,6 +2,7 @@
 
 const DEFAULT_WEB_APP_URL = "https://bd-daren-management-system.vercel.app";
 const fields = {
+  category: document.querySelector("#category"),
   debugOutput: document.querySelector("#debug-output"),
   description: document.querySelector("#description"),
   followerCount: document.querySelector("#follower-count"),
@@ -74,24 +75,62 @@ async function loadSettings() {
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
+  sendButton.disabled = true;
+  setStatus("正在采集到资源池…");
   try {
     const baseUrl = new URL(fields.webAppUrl.value.trim());
     if (!['http:', 'https:'].includes(baseUrl.protocol)) throw new Error("系统地址必须使用 http 或 https");
     const webAppUrl = baseUrl.href.replace(/\/$/, "");
+    const originPattern = `${baseUrl.origin}/*`;
+    const hasPermission = await chrome.permissions.request({ origins: [originPattern] });
+    if (!hasPermission) throw new Error("需要项目网站权限才能后台采集");
     await chrome.storage.local.set({ webAppUrl });
-    const params = new URLSearchParams({
+    const followerCount = parseFollowerCount(fields.followerCount.value);
+    const payload = {
+      category: fields.category.value,
+      follower_count: followerCount,
       nickname: fields.nickname.value.trim(),
       notes: fields.description.value.trim(),
       platform_account: fields.platformAccount.value.trim(),
       primary_platform: fields.platform.value,
       profile_url: fields.profileUrl.value,
+      priority: "normal",
+      source: "浏览器插件采集",
+      wechat: null,
+    };
+    const appTabs = await chrome.tabs.query({ url: originPattern });
+    const appTab = appTabs.find((tab) => tab.id && tab.url?.startsWith(baseUrl.origin));
+    if (!appTab?.id) throw new Error("请先打开并登录 BD 系统，再点击采集");
+
+    const endpoint = `${webAppUrl}/api/resources/capture`;
+    const [{ result }] = await chrome.scripting.executeScript({
+      args: [endpoint, payload],
+      func: async (captureEndpoint, capturePayload) => {
+        try {
+          const response = await fetch(captureEndpoint, {
+            body: JSON.stringify(capturePayload),
+            credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            method: "POST",
+          });
+          if (response.redirected && new URL(response.url).pathname === "/login") {
+            return { error: "请先登录 BD 系统", message: null, ok: false, status: 401 };
+          }
+          const data = await response.json().catch(() => ({}));
+          return { error: data.error || null, message: data.message || null, ok: response.ok, status: response.status };
+        } catch {
+          return { error: "无法连接 BD 系统", message: null, ok: false, status: 0 };
+        }
+      },
+      target: { tabId: appTab.id },
+      world: "MAIN",
     });
-    const followerCount = parseFollowerCount(fields.followerCount.value);
-    if (followerCount !== null) params.set("follower_count", String(followerCount));
-    await chrome.tabs.create({ url: `${webAppUrl}/resources/capture?${params}` });
-    window.close();
+    if (!result?.ok) throw new Error(result?.error || `采集失败（${result?.status ?? "未知状态"}）`);
+    setStatus(result.message || "已加入资源池");
+    sendButton.textContent = "已采集";
   } catch (error) {
     setStatus(error instanceof Error ? error.message : "无法打开 Web 系统", true);
+    sendButton.disabled = false;
   }
 });
 
