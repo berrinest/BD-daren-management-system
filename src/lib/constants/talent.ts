@@ -43,6 +43,14 @@ export const TALENT_PLATFORMS = [
 ] as const;
 
 export const TALENT_CATEGORIES = [
+  "生活消费类",
+  "技能类",
+  "娱乐情感类",
+  "其它",
+] as const;
+
+// 仅用于兼容编辑历史数据；新的录入和筛选入口不再展示这些旧分类。
+export const LEGACY_TALENT_CATEGORIES = [
   "美妆",
   "美食",
   "搞笑",

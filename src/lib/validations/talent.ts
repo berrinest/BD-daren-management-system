@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   TALENT_CATEGORIES,
+  LEGACY_TALENT_CATEGORIES,
   TALENT_PLATFORMS,
   TALENT_PRIORITIES,
   TALENT_STAGES,
@@ -31,7 +32,7 @@ const category = z.preprocess(
     if (typeof value !== "string" || value.trim() === "") return [];
     return [value.trim()];
   },
-  z.array(z.enum(TALENT_CATEGORIES)).length(1, "请选择达人赛道类别"),
+  z.array(z.enum([...TALENT_CATEGORIES, ...LEGACY_TALENT_CATEGORIES])).length(1, "请选择达人赛道类别"),
 );
 
 export const createTalentSchema = z.object({

@@ -2,6 +2,15 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
 
+const popupHtml = fs.readFileSync(new URL("../popup/index.html", import.meta.url), "utf8");
+assert.ok(popupHtml.includes('id="wechat"'));
+assert.ok(popupHtml.includes("生活消费类"));
+assert.ok(popupHtml.includes("技能类"));
+assert.ok(popupHtml.includes("娱乐情感类"));
+assert.ok(popupHtml.includes("其它"));
+assert.ok(!popupHtml.includes("抖音页面调试结果"));
+assert.ok(!popupHtml.includes("Web 系统地址"));
+
 const listeners = {};
 const createElement = (value = "") => ({
   classList: { toggle() {} },
@@ -12,7 +21,6 @@ const createElement = (value = "") => ({
 const elements = new Map([
   ["#capture-form", { ...createElement(), addEventListener(type, listener) { listeners[type] = listener; } }],
   ["#category", createElement("美食")],
-  ["#debug-output", createElement()],
   ["#description", createElement()],
   ["#follower-count", createElement()],
   ["#nickname", createElement()],
@@ -22,7 +30,7 @@ const elements = new Map([
   ["#refresh", { ...createElement(), addEventListener() {} }],
   ["#send", createElement()],
   ["#status", createElement()],
-  ["#web-app-url", createElement()],
+  ["#wechat", createElement("test-wechat")],
 ]);
 
 let requestedEndpoint = "";
@@ -79,6 +87,7 @@ await listeners.submit({ preventDefault() {} });
 assert.equal(requestedEndpoint, "https://bd-daren-management-system.vercel.app/api/resources/capture");
 assert.equal(requestedPayload.category, "美食");
 assert.equal(requestedPayload.follower_count, 1246000);
+assert.equal(requestedPayload.wechat, "test-wechat");
 assert.equal(elements.get("#status").textContent, "已加入资源池");
 assert.equal(elements.get("#send").textContent, "已采集");
 assert.equal(typeof chrome.tabs.create, "undefined", "background capture must not open a new tab");

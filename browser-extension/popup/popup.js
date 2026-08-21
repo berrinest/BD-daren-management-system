@@ -3,7 +3,6 @@
 const DEFAULT_WEB_APP_URL = "https://bd-daren-management-system.vercel.app";
 const fields = {
   category: document.querySelector("#category"),
-  debugOutput: document.querySelector("#debug-output"),
   description: document.querySelector("#description"),
   followerCount: document.querySelector("#follower-count"),
   nickname: document.querySelector("#nickname"),
@@ -11,7 +10,7 @@ const fields = {
   platformAccount: document.querySelector("#platform-account"),
   profileUrl: document.querySelector("#profile-url"),
   status: document.querySelector("#status"),
-  webAppUrl: document.querySelector("#web-app-url"),
+  wechat: document.querySelector("#wechat"),
 };
 const form = document.querySelector("#capture-form");
 const refreshButton = document.querySelector("#refresh");
@@ -51,26 +50,19 @@ async function collectCurrentPage() {
     if (!isDouyin || !profileMatch?.[1]) throw new Error("请打开达人主页后再采集");
     const response = await chrome.tabs.sendMessage(tab.id, { type: "collectDouyinProfile" });
     if (!response?.ok) throw new Error(response?.error || "页面没有返回可采集信息");
-    const { debug, profile } = response;
+    const { profile } = response;
     fields.nickname.value = profile.nickname;
     fields.platform.value = profile.platform;
     fields.platformAccount.value = profile.platformAccount;
     fields.followerCount.value = formatFollowerCount(profile.followerCount);
     fields.description.value = profile.description;
     fields.profileUrl.value = profile.profileUrl;
-    fields.debugOutput.textContent = JSON.stringify(debug, null, 2);
     sendButton.disabled = false;
     setStatus(profile.nickname ? "已读取公开资料，点击采集后在系统中确认保存。" : "未识别到昵称，请手动补充后采集。");
   } catch (error) {
-    fields.debugOutput.textContent = "未取得页面调试结果。重新加载扩展后，请刷新达人主页再试。";
     const message = error instanceof Error ? error.message : "页面读取失败";
     setStatus(message.includes("Receiving end does not exist") ? "请刷新当前达人主页后再重新读取" : message, true);
   }
-}
-
-async function loadSettings() {
-  const stored = await chrome.storage.local.get("webAppUrl");
-  fields.webAppUrl.value = stored.webAppUrl || DEFAULT_WEB_APP_URL;
 }
 
 form.addEventListener("submit", async (event) => {
@@ -78,11 +70,10 @@ form.addEventListener("submit", async (event) => {
   sendButton.disabled = true;
   setStatus("正在准备采集资料…");
   try {
-    const baseUrl = new URL(fields.webAppUrl.value.trim());
+    const baseUrl = new URL(DEFAULT_WEB_APP_URL);
     if (!['http:', 'https:'].includes(baseUrl.protocol)) throw new Error("系统地址必须使用 http 或 https");
     const webAppUrl = baseUrl.href.replace(/\/$/, "");
     const originPattern = `${baseUrl.origin}/*`;
-    await chrome.storage.local.set({ webAppUrl });
     const followerCount = parseFollowerCount(fields.followerCount.value);
     const payload = {
       category: fields.category.value,
@@ -94,7 +85,7 @@ form.addEventListener("submit", async (event) => {
       profile_url: fields.profileUrl.value,
       priority: "normal",
       source: "浏览器插件采集",
-      wechat: null,
+      wechat: fields.wechat.value.trim() || null,
     };
     setStatus("正在查找已登录的 BD 系统…");
     const appTabs = await chrome.tabs.query({ url: originPattern });
@@ -127,7 +118,6 @@ form.addEventListener("submit", async (event) => {
 
 refreshButton.addEventListener("click", collectCurrentPage);
 async function initialize() {
-  await loadSettings();
   await collectCurrentPage();
 }
 

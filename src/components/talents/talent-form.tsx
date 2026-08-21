@@ -32,6 +32,9 @@ export function TalentForm({
   const initialCategory = TALENT_CATEGORIES.find(
     (category) => category === initialValue?.tags[0],
   );
+  const legacyCategory = initialValue?.tags[0] && !initialCategory
+    ? initialValue.tags[0]
+    : null;
 
   return (
     <form
@@ -142,6 +145,9 @@ export function TalentForm({
             required
           >
             <option disabled value="">请选择赛道类别</option>
+            {legacyCategory ? (
+              <option value={legacyCategory}>{legacyCategory}（原分类）</option>
+            ) : null}
             {TALENT_CATEGORIES.map((category) => (
               <option key={category} value={category}>{category}</option>
             ))}
