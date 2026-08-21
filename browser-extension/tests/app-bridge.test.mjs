@@ -11,6 +11,7 @@ const context = {
   DOMException,
   fetch: async (endpoint, options) => {
     assert.equal(String(endpoint), "https://bd-daren-management-system.vercel.app/api/resources/capture");
+    assert.equal(options.credentials, "include", "bridge must include the signed-in web session cookie");
     requestedPayload = JSON.parse(options.body);
     return {
       async json() { return { message: "已加入资源池" }; },

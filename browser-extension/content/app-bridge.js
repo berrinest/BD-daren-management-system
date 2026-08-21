@@ -16,7 +16,7 @@ if (!globalThis.__BD_CAPTURE_APP_BRIDGE__) {
         }
         const response = await fetch(endpoint, {
           body: JSON.stringify(message.payload),
-          credentials: "same-origin",
+          credentials: "include",
           headers: { "Content-Type": "application/json" },
           method: "POST",
           signal: controller.signal,
