@@ -23,6 +23,10 @@
         <label>粉丝数量<input id="follower-count" min="0" step="1" type="number" /></label>
         <label>简介<textarea id="description" maxlength="1000" rows="3"></textarea></label>
         <label>主页链接<input id="profile-url" readonly type="url" /></label>
+        <details class="debug-panel" open>
+          <summary>抖音页面调试结果</summary>
+          <pre id="debug-output">等待读取…</pre>
+        </details>
         <details>
           <summary>Web 系统地址</summary>
           <input id="web-app-url" placeholder="https://your-app.vercel.app" type="url" />

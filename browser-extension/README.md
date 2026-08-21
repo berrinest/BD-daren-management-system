@@ -22,7 +22,7 @@ Chrome 与 Edge 通用的 Manifest V3 插件。第一阶段仅对用户主动打
 ## 权限说明
 
 - `activeTab`：仅在用户点击插件后访问当前标签页。
-- `scripting`：执行一次公开页面信息提取。
+- `content script`：只在抖音 `/user/` 达人主页加载；收到 Popup 的主动采集消息后才读取公开页面信息。
 - `storage`：只保存 Web 系统地址。
 
-插件没有配置平台 Host Permission，也不会后台持续读取页面。
+插件不会后台持续采集页面，也不会读取或保存登录 Token。Popup 中的调试结果仅用于确认当前达人主页公开数据来源。

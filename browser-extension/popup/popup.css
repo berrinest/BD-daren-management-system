@@ -21,6 +21,7 @@ input:focus, select:focus, textarea:focus { outline: 2px solid #b9d0c6; border-c
 details { border-top: 1px solid #e1e7e3; padding-top: 10px; }
 summary { cursor: pointer; color: #557064; font-size: 12px; font-weight: 600; }
 details input { margin-top: 8px; }
+.debug-panel pre { max-height: 240px; margin: 8px 0 0; overflow: auto; border: 1px solid #d7e0db; border-radius: 8px; background: #eef3f0; padding: 10px; color: #34443d; font: 11px/1.55 ui-monospace, SFMono-Regular, Consolas, monospace; white-space: pre-wrap; word-break: break-all; }
 .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 3px; }
 button { border: 0; border-radius: 8px; background: #31594b; padding: 9px 12px; color: white; cursor: pointer; font-size: 13px; font-weight: 700; }
 button.secondary { border: 1px solid #cbd8d2; background: white; color: #31594b; }

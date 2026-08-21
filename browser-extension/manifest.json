@@ -2,11 +2,22 @@
   "manifest_version": 3,
   "name": "BD 达人资源采集",
   "description": "将当前公开达人主页资料发送到 BD 达人管理系统资源池。",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "permissions": [
     "activeTab",
-    "scripting",
     "storage"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://douyin.com/user/*",
+        "https://*.douyin.com/user/*"
+      ],
+      "js": [
+        "content/content.js"
+      ],
+      "run_at": "document_idle"
+    }
   ],
   "action": {
     "default_title": "采集达人资源",

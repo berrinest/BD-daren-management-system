@@ -2,6 +2,7 @@
 
 const DEFAULT_WEB_APP_URL = "https://bd-daren-management-system.vercel.app";
 const fields = {
+  debugOutput: document.querySelector("#debug-output"),
   description: document.querySelector("#description"),
   followerCount: document.querySelector("#follower-count"),
   nickname: document.querySelector("#nickname"),
@@ -20,132 +21,6 @@ function setStatus(message, error = false) {
   fields.status.classList.toggle("error", error);
 }
 
-function extractDouyinProfile(expectedProfileId) {
-  const pageMatch = location.pathname.match(/^\/user\/([^/?#]+)/u);
-  let pageProfileId = "";
-  try {
-    pageProfileId = pageMatch?.[1] ? decodeURIComponent(pageMatch[1]) : "";
-  } catch {
-    throw new Error("请打开达人主页后再采集");
-  }
-  if (!pageProfileId || pageProfileId !== expectedProfileId) throw new Error("请打开达人主页后再采集");
-
-  const profileRegion = document.querySelector("main") || document.querySelector('[role="main"]');
-  const profileText = profileRegion?.innerText?.slice(0, 120000) ?? "";
-  const getMeta = (...selectors) => selectors
-    .map((selector) => document.querySelector(selector)?.getAttribute("content")?.trim())
-    .find(Boolean) ?? "";
-  const clean = (value, max) => String(value ?? "").replace(/\s+/g, " ").trim().slice(0, max);
-  const parseFollowerCount = (rawValue, unit = "") => {
-    const normalized = String(rawValue ?? "").replaceAll(",", "").trim();
-    const match = normalized.match(/^([\d.]+)\s*(万|亿|[wW])?/u);
-    const value = Number(match?.[1] ?? normalized);
-    if (!Number.isFinite(value) || value < 0) return null;
-    const normalizedUnit = (unit || match?.[2] || "").toLowerCase();
-    if (normalizedUnit === "万" || normalizedUnit === "w") return Math.round(value * 10000);
-    if (normalizedUnit === "亿") return Math.round(value * 100000000);
-    return Math.round(value);
-  };
-
-  const identifierKeys = ["secUid", "sec_uid", "secUserId", "sec_user_id"];
-  const readValue = (root, keys, maxDepth = 4) => {
-    const queue = [{ depth: 0, value: root }];
-    let inspected = 0;
-    while (queue.length && inspected < 1000) {
-      const { depth, value } = queue.shift();
-      inspected += 1;
-      if (!value || typeof value !== "object") continue;
-      for (const key of keys) {
-        const found = value[key];
-        if (typeof found === "number" || (typeof found === "string" && found.trim())) return found;
-      }
-      if (depth >= maxDepth) continue;
-      for (const child of Object.values(value)) if (child && typeof child === "object") queue.push({ depth: depth + 1, value: child });
-    }
-    return null;
-  };
-  const findTargetProfile = (root) => {
-    const stack = [{ parent: null, value: root }];
-    let inspected = 0;
-    while (stack.length && inspected < 20000) {
-      const { parent, value: current } = stack.pop();
-      inspected += 1;
-      if (!current || typeof current !== "object") continue;
-      const isTarget = identifierKeys.some((key) => String(current[key] ?? "") === expectedProfileId);
-      if (isTarget) return { container: parent, profile: current };
-      for (const value of Object.values(current)) {
-        if (value && typeof value === "object") stack.push({ parent: current, value });
-      }
-    }
-    return null;
-  };
-
-  let structured = null;
-  const jsonSources = [];
-  const renderData = document.querySelector("#RENDER_DATA")?.textContent?.trim();
-  if (renderData) jsonSources.push({ encoded: true, value: renderData });
-  for (const script of document.querySelectorAll('script[type="application/json"], script#__NEXT_DATA__')) {
-    const value = script.textContent?.trim();
-    if (value && value.length <= 3000000 && value !== renderData) jsonSources.push({ encoded: false, value });
-    if (jsonSources.length >= 30) break;
-  }
-  for (const source of jsonSources) {
-    try {
-      const root = JSON.parse(source.encoded ? decodeURIComponent(source.value) : source.value);
-      structured = findTargetProfile(root);
-      if (structured) break;
-    } catch {
-      // Ignore malformed or unrelated embedded state and continue with public fallbacks.
-    }
-  }
-
-  const title = getMeta('meta[property="og:title"]', 'meta[name="twitter:title"]') || document.title;
-  const rawNicknameFromTitle = title.replace(/\s*[-_|]\s*抖音.*$/u, "").replace(/的抖音主页.*$/u, "").trim();
-  const nicknameFromTitle = /^(抖音|记录美好生活)$/u.test(rawNicknameFromTitle) ? "" : rawNicknameFromTitle;
-  const structuredNickname = readValue(structured?.profile, ["nickname", "nickName"]);
-  const nickname = clean(
-    structuredNickname
-      || nicknameFromTitle,
-    100,
-  );
-  const metaDescription = getMeta('meta[property="og:description"]', 'meta[name="description"]');
-  const publicProfileText = `${profileText}\n${metaDescription}`;
-  const accountMatch = publicProfileText.match(/抖音号\s*[:：]\s*([^\s,，;；]+)/u);
-  const platformAccount = clean(
-    readValue(structured?.profile, ["uniqueId", "unique_id", "uniqueID", "shortId", "short_id", "displayId", "display_id"])
-      || accountMatch?.[1],
-    200,
-  );
-  const followerMatch = publicProfileText.match(/([\d,.]+(?:\.\d+)?)\s*(万|亿|[wW])?\s*粉丝/u)
-    || publicProfileText.match(/粉丝(?:数|量)?\s*[:：]?\s*([\d,.]+(?:\.\d+)?)\s*(万|亿|[wW])?/u);
-  const followerKeys = ["followerCount", "follower_count", "fansCount", "fans_count", "fans"];
-  const stats = structured?.container && typeof structured.container === "object"
-    ? structured.container.stats
-      || structured.container.statsV2
-      || structured.container.userStats
-      || structured.container.user_stats
-    : null;
-  const structuredFollowers = readValue(structured?.profile, followerKeys)
-    ?? readValue(stats, followerKeys, 2);
-  const followerCount = structuredFollowers !== null
-    ? parseFollowerCount(structuredFollowers)
-    : followerMatch ? parseFollowerCount(followerMatch[1], followerMatch[2]) : null;
-  const description = clean(
-    readValue(structured?.profile, ["signature", "description", "bio"])
-      || metaDescription,
-    1000,
-  );
-
-  return {
-    description,
-    followerCount,
-    nickname,
-    platform: "douyin",
-    platformAccount,
-    profileUrl: `${location.origin}/user/${encodeURIComponent(pageProfileId)}`,
-  };
-}
-
 async function collectCurrentPage() {
   sendButton.disabled = true;
   setStatus("正在读取当前公开页面…");
@@ -156,24 +31,22 @@ async function collectCurrentPage() {
     const profileMatch = url.pathname.match(/^\/user\/([^/?#]+)/u);
     const isDouyin = url.hostname === "douyin.com" || url.hostname.endsWith(".douyin.com");
     if (!isDouyin || !profileMatch?.[1]) throw new Error("请打开达人主页后再采集");
-    let profileId = "";
-    try {
-      profileId = decodeURIComponent(profileMatch[1]);
-    } catch {
-      throw new Error("请打开达人主页后再采集");
-    }
-    const [{ result }] = await chrome.scripting.executeScript({ args: [profileId], target: { tabId: tab.id }, func: extractDouyinProfile });
-    if (!result) throw new Error("页面没有返回可采集信息");
-    fields.nickname.value = result.nickname;
-    fields.platform.value = result.platform;
-    fields.platformAccount.value = result.platformAccount;
-    fields.followerCount.value = result.followerCount ?? "";
-    fields.description.value = result.description;
-    fields.profileUrl.value = result.profileUrl;
+    const response = await chrome.tabs.sendMessage(tab.id, { type: "collectDouyinProfile" });
+    if (!response?.ok) throw new Error(response?.error || "页面没有返回可采集信息");
+    const { debug, profile } = response;
+    fields.nickname.value = profile.nickname;
+    fields.platform.value = profile.platform;
+    fields.platformAccount.value = profile.platformAccount;
+    fields.followerCount.value = profile.followerCount ?? "";
+    fields.description.value = profile.description;
+    fields.profileUrl.value = profile.profileUrl;
+    fields.debugOutput.textContent = JSON.stringify(debug, null, 2);
     sendButton.disabled = false;
-    setStatus(result.nickname ? "已读取公开资料，请确认后发送。" : "未识别到昵称，请手动补充后发送。");
+    setStatus(profile.nickname ? "已读取公开资料，请确认并查看调试结果。" : "未识别到昵称，请查看调试结果并手动补充。");
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : "页面读取失败", true);
+    fields.debugOutput.textContent = "未取得页面调试结果。重新加载扩展后，请刷新达人主页再试。";
+    const message = error instanceof Error ? error.message : "页面读取失败";
+    setStatus(message.includes("Receiving end does not exist") ? "请刷新当前达人主页后再重新读取" : message, true);
   }
 }
 
