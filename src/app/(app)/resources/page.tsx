@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { ResourceTable } from "@/components/resources/resource-table";
+import { FormSubmitButton } from "@/components/ui/form-submit-button";
 import { RESOURCE_SOURCE_TYPES, RESOURCE_SOURCE_TYPE_LABELS, TALENT_CATEGORIES, TALENT_PLATFORMS, TALENT_PLATFORM_LABELS, TALENT_PRIORITIES, TALENT_PRIORITY_LABELS } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
 
@@ -70,7 +71,7 @@ export default async function ResourcesPage({ searchParams }: Props) {
       <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="source_detail" placeholder="来源详情，如搜索词/榜单名" />
       <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm md:col-span-2" name="source_url" placeholder="发现该达人的页面链接" type="url" />
       <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm md:col-span-3" name="notes" placeholder="备注" />
-      <button className="rounded-lg bg-[#31594b] px-4 py-2.5 text-sm font-semibold text-white" type="submit">快速录入</button>
+      <FormSubmitButton className="rounded-lg bg-[#31594b] px-4 py-2.5 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-[#91a59e]" label="快速录入" pendingLabel="正在录入…" />
     </form>
     <form className="mt-5 grid gap-3 rounded-2xl border border-[#e7ebe8] bg-white p-4 shadow-sm md:grid-cols-6">
       <input className="rounded-lg border border-[#dfe5e1] px-3 py-2 text-sm" defaultValue={search} name="q" placeholder="搜索昵称" />

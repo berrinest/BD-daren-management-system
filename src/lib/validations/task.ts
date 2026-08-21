@@ -20,5 +20,5 @@ export const createTaskSchema = z.object({
 export const taskMutationSchema = z.object({
   task_id: z.uuid(),
   talent_id: z.uuid(),
-  return_to: z.enum(["tasks", "talent", "work"]),
+  return_to: z.enum(["dashboard", "tasks", "talent", "work"]),
 });

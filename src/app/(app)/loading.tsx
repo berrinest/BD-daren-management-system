@@ -1,0 +1,3 @@
+export default function AppLoading() {
+  return <main className="p-5 md:p-8" aria-live="polite" aria-busy="true"><section className="mx-auto max-w-6xl"><div className="h-4 w-24 animate-pulse rounded bg-[#dfe7e2]" /><div className="mt-4 h-8 w-52 animate-pulse rounded bg-[#d7e1dc]" /><div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{Array.from({ length: 4 }, (_, index) => <div className="h-28 animate-pulse rounded-2xl border border-[#e7ebe8] bg-white" key={index} />)}</div><div className="mt-6 h-64 animate-pulse rounded-2xl border border-[#e7ebe8] bg-white" /><p className="mt-4 text-sm text-slate-400">正在加载工作数据…</p></section></main>;
+}

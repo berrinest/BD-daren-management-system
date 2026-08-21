@@ -15,6 +15,7 @@ type TalentDetailPageProps = {
   params: Promise<{ id: string }>;
   searchParams: Promise<{
     resourceNotice?: string;
+    returnTo?: string;
     task?: string;
     taskError?: string;
     taskNotice?: string;
@@ -27,6 +28,9 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
   const { data: claimsData } = await supabase.auth.getClaims();
   const userId = claimsData?.claims?.sub;
   if (!userId) redirect("/login");
+  const returnTo = taskMessage.returnTo === "work" || taskMessage.returnTo === "dashboard" ? taskMessage.returnTo : "talent";
+  const backHref = returnTo === "work" ? "/work" : returnTo === "dashboard" ? "/dashboard" : "/talents";
+  const backLabel = returnTo === "work" ? "返回今日工作" : returnTo === "dashboard" ? "返回今日工作台" : "返回达人库";
 
   const [
     { data: talent, error },
@@ -81,7 +85,7 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
 
   return (
     <main className="p-5 md:p-8"><section className="mx-auto max-w-5xl">
-      <Link className="text-sm font-medium text-[#557064] hover:underline" href="/talents">← 返回达人库</Link>
+      <Link className="text-sm font-medium text-[#557064] hover:underline" href={backHref}>← {backLabel}</Link>
       {taskMessage.resourceNotice === "converted" || taskMessage.resourceNotice === "auto-converted" ? (
         <p className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">
           {taskMessage.resourceNotice === "auto-converted" ? "联系结果已保存，资源已自动转换为正式达人。" : "资源已转换为正式达人，可以开始创建任务和跟进。"}
@@ -145,7 +149,7 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
                   <p className="mt-1 text-xs text-slate-500">到期：{formatDateTime(task.due_at)}</p>
                   {task.notes ? <p className="mt-2 text-sm text-slate-600">{task.notes}</p> : null}
                 </div>
-                <TaskActions returnTo="talent" talentId={talent.id} taskId={task.id} />
+                <TaskActions returnTo={returnTo} talentId={talent.id} taskId={task.id} />
               </article>
             ))}
           </div>

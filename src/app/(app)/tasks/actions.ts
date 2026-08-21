@@ -7,9 +7,12 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createTaskSchema, taskMutationSchema } from "@/lib/validations";
 
-function taskRedirect(returnTo: "talent" | "tasks" | "work", talentId: string, notice?: string) {
+function taskRedirect(returnTo: "dashboard" | "talent" | "tasks" | "work", talentId: string, notice?: string) {
   if (returnTo === "work") {
     redirect(notice ? `/work?notice=task-${notice}` : "/work?error=任务处理失败，请刷新后重试");
+  }
+  if (returnTo === "dashboard") {
+    redirect(notice ? `/dashboard?notice=task-${notice}` : "/dashboard?error=任务处理失败，请刷新后重试");
   }
   const path = returnTo === "talent" ? `/talents/${talentId}` : "/tasks";
   redirect(notice ? `${path}?taskNotice=${notice}` : path);
@@ -53,6 +56,8 @@ export async function createTask(formData: FormData) {
   }
 
   revalidatePath("/tasks");
+  revalidatePath("/dashboard");
+  revalidatePath("/work");
   revalidatePath(`/talents/${input.data.talent_id}`);
   redirect(`/talents/${input.data.talent_id}?taskNotice=created`);
 }

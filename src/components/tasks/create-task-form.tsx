@@ -1,4 +1,5 @@
 import { createTask } from "@/app/(app)/tasks/actions";
+import { FormSubmitButton } from "@/components/ui/form-submit-button";
 import { TASK_TYPES, TASK_TYPE_LABELS } from "@/lib/constants";
 import { toShanghaiTomorrowDateTimeLocalValue } from "@/lib/formatters/date";
 
@@ -49,12 +50,7 @@ export function CreateTaskForm({ talentId }: CreateTaskFormProps) {
         />
       </label>
       <div className="md:col-span-2 md:text-right">
-        <button
-          className="rounded-lg bg-[#31594b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#284a3e]"
-          type="submit"
-        >
-          创建任务
-        </button>
+        <FormSubmitButton className="rounded-lg bg-[#31594b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#284a3e] disabled:cursor-not-allowed disabled:bg-[#91a59e]" label="创建任务" pendingLabel="正在创建…" />
       </div>
     </form>
   );

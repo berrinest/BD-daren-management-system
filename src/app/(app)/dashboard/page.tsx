@@ -6,8 +6,13 @@ import { formatDateTime } from "@/lib/formatters/date";
 
 const timingLabels = { overdue: "已逾期", today: "今日到期", new: "新资源" } as const;
 
-export default async function DashboardPage() {
+type Props = { searchParams: Promise<{ error?: string; notice?: string }> };
+
+export default async function DashboardPage({ searchParams }: Props) {
+  const params = await searchParams;
   const { summary, workItems } = await getDashboardData();
+  const errorMessage = (params.error ?? "").slice(0, 200);
+  const notice = ["task-completed", "task-cancelled"].find((value) => value === params.notice);
   const summaryCards = [
     { label: "逾期待处理", value: summary.overdueCount, hint: "达人任务与资源", style: "bg-red-50 text-red-700" },
     { label: "今日达人任务", value: summary.todayTaskCount, hint: "今天到期", style: "bg-[#eaf3ef] text-[#31594b]" },
@@ -17,6 +22,9 @@ export default async function DashboardPage() {
 
   return <main className="p-5 md:p-8"><section className="mx-auto max-w-6xl">
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end"><div><p className="text-xs font-semibold tracking-[0.18em] text-[#668074]">TODAY</p><h1 className="mt-2 text-2xl font-semibold text-[#26332e]">今日工作台</h1><p className="mt-2 text-sm text-slate-500">从上往下处理：逾期优先，再处理今日到期和新资源。</p></div><div className="flex flex-wrap gap-2"><Link className="rounded-lg border border-[#31594b] px-3 py-2 text-xs font-semibold text-[#31594b]" href="/resources">录入资源</Link><Link className="rounded-lg bg-[#31594b] px-4 py-2 text-xs font-semibold text-white" href="/work">开始今日工作</Link></div></div>
+    {errorMessage ? <p className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">{errorMessage}</p> : null}
+    {notice === "task-completed" ? <p className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">任务已完成并写入跟进记录。</p> : null}
+    {notice === "task-cancelled" ? <p className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">任务已取消。</p> : null}
 
     <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="今日工作摘要">{summaryCards.map((card) => <article className="rounded-2xl border border-[#e7ebe8] bg-white p-5 shadow-sm" key={card.label}><div className={`inline-flex rounded-lg px-2.5 py-1 text-xs font-semibold ${card.style}`}>{card.label}</div><p className="mt-4 text-3xl font-semibold text-[#26332e]">{card.value}</p><p className="mt-1 text-xs text-slate-400">{card.hint}</p></article>)}</section>
 

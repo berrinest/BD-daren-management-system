@@ -42,7 +42,7 @@ export async function getDashboardData() {
 
   const { todayStart, tomorrowStart } = getShanghaiDayRange();
   const [tasksResult, dueResourcesResult, newResourcesResult] = await Promise.all([
-    supabase.from("tasks").select("id, talent_id, task_type, due_at, talents!tasks_talent_owner_fk!inner(id, nickname, primary_platform, priority, stage, archived_at)").eq("user_id", userId).eq("status", "pending").is("talents.archived_at", null).lt("due_at", tomorrowStart),
+    supabase.from("tasks").select("id, talent_id, task_type, due_at, talents!tasks_talent_owner_fk!inner(id, nickname, primary_platform, priority, stage, archived_at, wechat)").eq("user_id", userId).eq("status", "pending").is("talents.archived_at", null).lt("due_at", tomorrowStart),
     supabase.from("talent_resources").select("id, nickname, primary_platform, priority, processing_status, next_action_at, wechat").eq("user_id", userId).eq("status", "new").neq("processing_status", "paused").neq("processing_status", "pending_add").not("next_action_at", "is", null).lt("next_action_at", tomorrowStart),
     supabase.from("talent_resources").select("id, nickname, primary_platform, priority, processing_status, discovered_at, wechat").eq("user_id", userId).eq("status", "new").eq("processing_status", "pending_add"),
   ]);
@@ -61,6 +61,7 @@ export async function getDashboardData() {
     talentId: task.talent_id,
     taskId: task.id,
     timing: task.due_at < todayStart ? "overdue" : "today",
+    wechat: task.talents.wechat,
   }));
 
   const dueResourceItems: DashboardWorkItem[] = (dueResourcesResult.data ?? []).map((resource) => ({

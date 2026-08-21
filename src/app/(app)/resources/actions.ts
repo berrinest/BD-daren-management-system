@@ -171,6 +171,7 @@ export async function convertTalentResource(formData: FormData) {
 }
 
 export async function updateTalentResourcePriority(formData: FormData) {
+  const returnToWork = formData.get("return_to") === "work";
   const input = updateTalentResourcePrioritySchema.safeParse({
     priority: formData.get("priority"),
     resource_id: formData.get("resource_id"),
@@ -198,10 +199,11 @@ export async function updateTalentResourcePriority(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/resources");
   revalidatePath(`/resources/${input.data.resource_id}`);
-  redirect(`/resources/${input.data.resource_id}?notice=priority-updated`);
+  redirect(`/resources/${input.data.resource_id}?notice=priority-updated${returnToWork ? "&returnTo=work" : ""}`);
 }
 
 export async function updateTalentResourceProcessingStatus(formData: FormData) {
+  const returnToWork = formData.get("return_to") === "work";
   const input = updateTalentResourceProcessingStatusSchema.safeParse({
     next_action_at: formData.get("next_action_at"),
     processing_status: formData.get("processing_status"),
@@ -235,7 +237,7 @@ export async function updateTalentResourceProcessingStatus(formData: FormData) {
   revalidatePath("/dashboard");
   revalidatePath("/resources");
   revalidatePath(`/resources/${input.data.resource_id}`);
-  redirect(`/resources/${input.data.resource_id}?notice=status-updated`);
+  redirect(`/resources/${input.data.resource_id}?notice=status-updated${returnToWork ? "&returnTo=work" : ""}`);
 }
 
 export async function bulkUpdateTalentResourcePriority(formData: FormData) {
