@@ -110,6 +110,7 @@ export async function batchCreateTalentResources(
 }
 
 export async function createTalentResource(formData: FormData) {
+  const continueAdding = formData.get("submit_intent") === "continue";
   const sourceInput = resourceSourceInputSchema.safeParse({
     source_type: formData.get("source_type"),
     source_detail: formData.get("source_detail"),
@@ -150,7 +151,17 @@ export async function createTalentResource(formData: FormData) {
   const { error } = await supabase.from("talent_resources").insert({ ...input.data, user_id: userId });
   if (error) redirect("/resources?error=资源录入失败，请稍后重试");
 
+  revalidatePath("/dashboard");
   revalidatePath("/resources");
+  if (continueAdding) {
+    const params = new URLSearchParams({
+      captureCategory: input.data.category,
+      capturePlatform: input.data.primary_platform,
+      capturePriority: input.data.priority,
+      notice: "created-continue",
+    });
+    redirect(`/resources?${params}`);
+  }
   redirect("/resources?notice=created");
 }
 
@@ -197,8 +208,10 @@ export async function updateTalentResourcePriority(formData: FormData) {
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/work");
   revalidatePath("/resources");
   revalidatePath(`/resources/${input.data.resource_id}`);
+  if (returnToWork) redirect("/work?notice=resource-priority-updated");
   redirect(`/resources/${input.data.resource_id}?notice=priority-updated${returnToWork ? "&returnTo=work" : ""}`);
 }
 
@@ -235,8 +248,10 @@ export async function updateTalentResourceProcessingStatus(formData: FormData) {
   }
 
   revalidatePath("/dashboard");
+  revalidatePath("/work");
   revalidatePath("/resources");
   revalidatePath(`/resources/${input.data.resource_id}`);
+  if (returnToWork) redirect("/work?notice=resource-paused");
   redirect(`/resources/${input.data.resource_id}?notice=status-updated${returnToWork ? "&returnTo=work" : ""}`);
 }
 

@@ -13,12 +13,16 @@ export type RecentContact = {
 
 export type DashboardWorkItem = {
   actionType: string;
+  category?: string | null;
   dueAt: string | null;
+  followerCount?: number | null;
   id: string;
   kind: "talent_task" | "resource";
   nickname: string;
   platform: string;
+  platformAccount?: string | null;
   priority: string;
+  profileUrl?: string | null;
   recentContact: RecentContact | null;
   resourceId?: string;
   state: string;
@@ -36,6 +40,15 @@ export type StaleTalentReminder = {
   priority: string;
   recentContact: RecentContact | null;
   stage: string;
+};
+
+export type StaleResourceReminder = {
+  id: string;
+  lastActivityAt: string;
+  nickname: string;
+  platform: string;
+  priority: string;
+  state: string;
 };
 
 const timingRank: Record<Timing, number> = { overdue: 0, today: 1, new: 2 };
@@ -59,14 +72,16 @@ export async function getDashboardData() {
 
   const { todayStart, tomorrowStart } = getShanghaiDayRange();
   const inactivityCutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
-  const [tasksResult, dueResourcesResult, newResourcesResult, staleCandidatesResult] = await Promise.all([
-    supabase.from("tasks").select("id, talent_id, task_type, due_at, talents!tasks_talent_owner_fk!inner(id, nickname, primary_platform, priority, stage, archived_at, wechat)").eq("user_id", userId).eq("status", "pending").is("talents.archived_at", null).lt("due_at", tomorrowStart),
-    supabase.from("talent_resources").select("id, nickname, primary_platform, priority, processing_status, next_action_at, wechat").eq("user_id", userId).eq("status", "new").neq("processing_status", "paused").neq("processing_status", "pending_add").not("next_action_at", "is", null).lt("next_action_at", tomorrowStart),
-    supabase.from("talent_resources").select("id, nickname, primary_platform, priority, processing_status, discovered_at, wechat").eq("user_id", userId).eq("status", "new").eq("processing_status", "pending_add").or(`next_action_at.is.null,next_action_at.lt.${tomorrowStart}`),
+  const [tasksResult, dueResourcesResult, newResourcesResult, staleCandidatesResult, noPlanResourcesResult, staleResourcesResult] = await Promise.all([
+    supabase.from("tasks").select("id, talent_id, task_type, due_at, talents!tasks_talent_owner_fk!inner(id, nickname, primary_platform, platform_account, profile_url, follower_count, tags, priority, stage, archived_at, wechat)").eq("user_id", userId).eq("status", "pending").is("talents.archived_at", null).lt("due_at", tomorrowStart),
+    supabase.from("talent_resources").select("id, nickname, primary_platform, platform_account, profile_url, follower_count, category, priority, processing_status, next_action_at, wechat").eq("user_id", userId).eq("status", "new").neq("processing_status", "paused").neq("processing_status", "pending_add").not("next_action_at", "is", null).lt("next_action_at", tomorrowStart),
+    supabase.from("talent_resources").select("id, nickname, primary_platform, platform_account, profile_url, follower_count, category, priority, processing_status, discovered_at, wechat").eq("user_id", userId).eq("status", "new").eq("processing_status", "pending_add").or(`next_action_at.is.null,next_action_at.lt.${tomorrowStart}`),
     supabase.from("talents").select("id, nickname, primary_platform, priority, stage, created_at, updated_at").eq("user_id", userId).is("archived_at", null).neq("priority", "paused").not("stage", "in", "(completed,rejected)").lt("created_at", inactivityCutoff).lt("updated_at", inactivityCutoff).order("updated_at", { ascending: true }).limit(100),
+    supabase.from("talent_resources").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("status", "new").neq("processing_status", "paused").is("next_action_at", null),
+    supabase.from("talent_resources").select("id, nickname, primary_platform, priority, processing_status, discovered_at, resource_contact_records(occurred_at)").eq("user_id", userId).eq("status", "new").neq("processing_status", "paused").is("next_action_at", null).lt("discovered_at", inactivityCutoff).order("discovered_at", { ascending: true }).order("occurred_at", { ascending: false, referencedTable: "resource_contact_records" }).limit(1, { referencedTable: "resource_contact_records" }).limit(100),
   ]);
 
-  if (tasksResult.error || dueResourcesResult.error || newResourcesResult.error || staleCandidatesResult.error) throw new Error("Dashboard data could not be loaded");
+  if (tasksResult.error || dueResourcesResult.error || newResourcesResult.error || staleCandidatesResult.error || noPlanResourcesResult.error || staleResourcesResult.error) throw new Error("Dashboard data could not be loaded");
 
   const taskTalentIds = [...new Set((tasksResult.data ?? []).map((task) => task.talent_id))];
   const staleCandidateIds = (staleCandidatesResult.data ?? []).map((talent) => talent.id);
@@ -94,12 +109,16 @@ export async function getDashboardData() {
 
   const taskItems: DashboardWorkItem[] = (tasksResult.data ?? []).map((task) => ({
     actionType: task.task_type,
+    category: task.talents.tags[0] ?? null,
     dueAt: task.due_at,
+    followerCount: task.talents.follower_count,
     id: `task:${task.id}`,
     kind: "talent_task",
     nickname: task.talents.nickname,
     platform: task.talents.primary_platform,
+    platformAccount: task.talents.platform_account,
     priority: task.talents.priority,
+    profileUrl: task.talents.profile_url,
     recentContact: talentContactMap.get(task.talent_id) ?? null,
     state: task.talents.stage,
     talentId: task.talent_id,
@@ -110,12 +129,16 @@ export async function getDashboardData() {
 
   const dueResourceItems: DashboardWorkItem[] = (dueResourcesResult.data ?? []).map((resource) => ({
     actionType: "continue_resource",
+    category: resource.category,
     dueAt: resource.next_action_at,
+    followerCount: resource.follower_count,
     id: `resource:${resource.id}`,
     kind: "resource",
     nickname: resource.nickname,
     platform: resource.primary_platform,
+    platformAccount: resource.platform_account,
     priority: resource.priority,
+    profileUrl: resource.profile_url,
     recentContact: resourceContactMap.get(resource.id) ?? null,
     resourceId: resource.id,
     state: resource.processing_status,
@@ -125,12 +148,16 @@ export async function getDashboardData() {
 
   const newResourceItems: DashboardWorkItem[] = (newResourcesResult.data ?? []).map((resource) => ({
     actionType: "first_resource",
+    category: resource.category,
     dueAt: resource.discovered_at,
+    followerCount: resource.follower_count,
     id: `resource:${resource.id}`,
     kind: "resource",
     nickname: resource.nickname,
     platform: resource.primary_platform,
+    platformAccount: resource.platform_account,
     priority: resource.priority,
+    profileUrl: resource.profile_url,
     recentContact: resourceContactMap.get(resource.id) ?? null,
     resourceId: resource.id,
     state: resource.processing_status,
@@ -159,13 +186,30 @@ export async function getDashboardData() {
     })
     .sort((left, right) => left.lastActivityAt.localeCompare(right.lastActivityAt))
     .slice(0, 8);
+  const staleResources: StaleResourceReminder[] = (staleResourcesResult.data ?? [])
+    .filter((resource) => {
+      const latestContact = resource.resource_contact_records[0]?.occurred_at;
+      return !latestContact || latestContact < inactivityCutoff;
+    })
+    .map((resource) => ({
+      id: resource.id,
+      lastActivityAt: resource.resource_contact_records[0]?.occurred_at ?? resource.discovered_at,
+      nickname: resource.nickname,
+      platform: resource.primary_platform,
+      priority: resource.priority,
+      state: resource.processing_status,
+    }))
+    .sort((left, right) => left.lastActivityAt.localeCompare(right.lastActivityAt))
+    .slice(0, 8);
   return {
     summary: {
       dueResourceCount: dueResourceItems.length,
       newResourceCount: newResourceItems.length,
+      noPlanResourceCount: noPlanResourcesResult.count ?? 0,
       overdueCount: workItems.filter((item) => item.timing === "overdue").length,
       todayTaskCount: taskItems.filter((item) => item.timing === "today").length,
     },
+    staleResources,
     staleTalents,
     workItems,
   };
