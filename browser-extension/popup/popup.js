@@ -76,7 +76,7 @@ async function loadSettings() {
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   sendButton.disabled = true;
-  setStatus("正在采集到资源池…");
+  setStatus("正在申请项目网站权限…");
   try {
     const baseUrl = new URL(fields.webAppUrl.value.trim());
     if (!['http:', 'https:'].includes(baseUrl.protocol)) throw new Error("系统地址必须使用 http 或 https");
@@ -98,38 +98,54 @@ form.addEventListener("submit", async (event) => {
       source: "浏览器插件采集",
       wechat: null,
     };
+    setStatus("正在查找已登录的 BD 系统…");
     const appTabs = await chrome.tabs.query({ url: originPattern });
     const appTab = appTabs.find((tab) => tab.id && tab.url?.startsWith(baseUrl.origin));
     if (!appTab?.id) throw new Error("请先打开并登录 BD 系统，再点击采集");
 
     const endpoint = `${webAppUrl}/api/resources/capture`;
-    const [{ result }] = await chrome.scripting.executeScript({
+    setStatus("正在写入资源池…");
+    const execution = chrome.scripting.executeScript({
       args: [endpoint, payload],
       func: async (captureEndpoint, capturePayload) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
         try {
           const response = await fetch(captureEndpoint, {
             body: JSON.stringify(capturePayload),
             credentials: "same-origin",
             headers: { "Content-Type": "application/json" },
             method: "POST",
+            signal: controller.signal,
           });
           if (response.redirected && new URL(response.url).pathname === "/login") {
             return { error: "请先登录 BD 系统", message: null, ok: false, status: 401 };
           }
           const data = await response.json().catch(() => ({}));
           return { error: data.error || null, message: data.message || null, ok: response.ok, status: response.status };
-        } catch {
-          return { error: "无法连接 BD 系统", message: null, ok: false, status: 0 };
+        } catch (error) {
+          return {
+            error: error instanceof DOMException && error.name === "AbortError" ? "BD 系统响应超时，请稍后重试" : "无法连接 BD 系统",
+            message: null,
+            ok: false,
+            status: 0,
+          };
+        } finally {
+          clearTimeout(timeoutId);
         }
       },
       target: { tabId: appTab.id },
       world: "MAIN",
     });
+    const [{ result }] = await Promise.race([
+      execution,
+      new Promise((_, reject) => setTimeout(() => reject(new Error("后台采集超时，请确认 BD 系统标签页仍然打开")), 20000)),
+    ]);
     if (!result?.ok) throw new Error(result?.error || `采集失败（${result?.status ?? "未知状态"}）`);
     setStatus(result.message || "已加入资源池");
     sendButton.textContent = "已采集";
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : "无法打开 Web 系统", true);
+    setStatus(error instanceof Error ? error.message : "后台采集失败", true);
     sendButton.disabled = false;
   }
 });
