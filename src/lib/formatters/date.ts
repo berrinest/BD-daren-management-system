@@ -64,3 +64,8 @@ export function getShanghaiSecondDayAtTen(value = new Date()) {
   const atTen = new Date(`${parts.year}-${parts.month}-${parts.day}T10:00:00+08:00`);
   return new Date(atTen.getTime() + 2 * 24 * 60 * 60 * 1000);
 }
+
+export function getShanghaiTomorrowAtTen(now = new Date()) {
+  const { tomorrowStart } = getShanghaiDayRange(now);
+  return new Date(new Date(tomorrowStart).getTime() + 10 * 60 * 60 * 1000);
+}
