@@ -31,8 +31,8 @@ const chrome = {
   permissions: { async request() { return true; } },
   scripting: {
     async executeScript(options) {
-      const result = await options.func(...options.args);
-      return [{ result }];
+      assert.equal(options.files?.join(","), "content/app-bridge.js");
+      return [];
     },
   },
   storage: {
@@ -46,7 +46,12 @@ const chrome = {
       if (query.active) return [{ id: 1, url: "https://www.douyin.com/user/target" }];
       return [{ id: 2, url: "https://bd-daren-management-system.vercel.app/dashboard" }];
     },
-    async sendMessage() {
+    async sendMessage(tabId, message) {
+      if (message?.type === "captureTalentResource") {
+        requestedEndpoint = message.endpoint;
+        requestedPayload = message.payload;
+        return { message: "已加入资源池", ok: true, status: 201 };
+      }
       return {
         debug: {},
         ok: true,
@@ -69,17 +74,6 @@ const context = {
   console,
   document: { querySelector(selector) { return elements.get(selector); } },
   DOMException,
-  fetch: async (endpoint, options) => {
-    requestedEndpoint = endpoint;
-    requestedPayload = JSON.parse(options.body);
-    return {
-      async json() { return { message: "已加入资源池" }; },
-      ok: true,
-      redirected: false,
-      status: 201,
-      url: endpoint,
-    };
-  },
   setTimeout() { return 1; },
   clearTimeout() {},
   URL,

@@ -104,45 +104,21 @@ form.addEventListener("submit", async (event) => {
     if (!appTab?.id) throw new Error("请先打开并登录 BD 系统，再点击采集");
 
     const endpoint = `${webAppUrl}/api/resources/capture`;
-    setStatus("正在写入资源池…");
-    const execution = chrome.scripting.executeScript({
-      args: [endpoint, payload],
-      func: async (captureEndpoint, capturePayload) => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 15000);
-        try {
-          const response = await fetch(captureEndpoint, {
-            body: JSON.stringify(capturePayload),
-            credentials: "same-origin",
-            headers: { "Content-Type": "application/json" },
-            method: "POST",
-            signal: controller.signal,
-          });
-          if (response.redirected && new URL(response.url).pathname === "/login") {
-            return { error: "请先登录 BD 系统", message: null, ok: false, status: 401 };
-          }
-          const data = await response.json().catch(() => ({}));
-          return { error: data.error || null, message: data.message || null, ok: response.ok, status: response.status };
-        } catch (error) {
-          return {
-            error: error instanceof DOMException && error.name === "AbortError" ? "BD 系统响应超时，请稍后重试" : "无法连接 BD 系统",
-            message: null,
-            ok: false,
-            status: 0,
-          };
-        } finally {
-          clearTimeout(timeoutId);
-        }
-      },
-      target: { tabId: appTab.id },
-      world: "MAIN",
-    });
-    const [{ result }] = await Promise.race([
-      execution,
-      new Promise((_, reject) => setTimeout(() => reject(new Error("后台采集超时，请确认 BD 系统标签页仍然打开")), 20000)),
+    setStatus("正在连接 BD 系统标签页…");
+    await Promise.race([
+      chrome.scripting.executeScript({
+        files: ["content/app-bridge.js"],
+        target: { tabId: appTab.id },
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("无法连接 BD 系统标签页")), 5000)),
     ]);
-    if (!result?.ok) throw new Error(result?.error || `采集失败（${result?.status ?? "未知状态"}）`);
-    setStatus(result.message || "已加入资源池");
+    setStatus("正在写入资源池…");
+    const response = await Promise.race([
+      chrome.tabs.sendMessage(appTab.id, { endpoint, payload, type: "captureTalentResource" }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error("后台采集超时，请稍后重试")), 20000)),
+    ]);
+    if (!response?.ok) throw new Error(response?.error || `采集失败（${response?.status ?? "未知状态"}）`);
+    setStatus(response.message || "已加入资源池");
     sendButton.textContent = "已采集";
   } catch (error) {
     setStatus(error instanceof Error ? error.message : "后台采集失败", true);
