@@ -12,7 +12,81 @@ function decodeProfileId(pathname) {
   }
 }
 
-function readPageDebug(profileId, visibleText) {
+function findObjectBySecUid(root, profileId) {
+  const stack = [root];
+  let inspected = 0;
+  while (stack.length && inspected < 30000) {
+    const current = stack.pop();
+    inspected += 1;
+    if (!current || typeof current !== "object") continue;
+    if (String(current.secUid ?? current.sec_uid ?? "") === profileId) return current;
+    for (const value of Object.values(current)) {
+      if (value && typeof value === "object") stack.push(value);
+    }
+  }
+  return null;
+}
+
+function parsePaceRoots(raw) {
+  const marker = "self.__pace_f.push(";
+  const markerIndex = raw.indexOf(marker);
+  if (markerIndex < 0) return [];
+  const payloadStart = markerIndex + marker.length;
+  const payloadEnd = raw.lastIndexOf(")");
+  if (payloadEnd <= payloadStart) return [];
+
+  const pushed = JSON.parse(raw.slice(payloadStart, payloadEnd));
+  const roots = [];
+  for (const value of Array.isArray(pushed) ? pushed : [pushed]) {
+    if (value && typeof value === "object") roots.push(value);
+    if (typeof value !== "string") continue;
+    const serialized = value.replace(/^\d+:/u, "").trim();
+    if (!serialized.startsWith("{") && !serialized.startsWith("[")) continue;
+    try {
+      roots.push(JSON.parse(serialized));
+    } catch {
+      // Other React Flight chunks are irrelevant to the current profile object.
+    }
+  }
+  return roots;
+}
+
+function findPaceProfile(profileId) {
+  const scripts = Array.from(document.scripts);
+  for (let index = 0; index < scripts.length; index += 1) {
+    const raw = scripts[index].textContent?.trim();
+    if (!raw || !raw.includes("self.__pace_f.push(") || !raw.includes(profileId)) continue;
+    try {
+      for (const root of parsePaceRoots(raw)) {
+        const profile = findObjectBySecUid(root, profileId);
+        if (profile) return { profile, scriptIndex: index };
+      }
+    } catch {
+      // Keep searching other target-specific Flight chunks.
+    }
+  }
+  return null;
+}
+
+function collectStructuredCandidates(profile) {
+  if (!profile) return [];
+  const candidates = [];
+  const relevantKey = /(unique|shortid|nickname|secuid|follower|fans)/iu;
+  for (const [key, value] of Object.entries(profile)) {
+    if (relevantKey.test(key) && (typeof value === "string" || typeof value === "number")) {
+      candidates.push({ path: `user.${key}`, value });
+    }
+    if (!/(stats|count)/iu.test(key) || !value || typeof value !== "object") continue;
+    for (const [childKey, childValue] of Object.entries(value)) {
+      if (relevantKey.test(childKey) && (typeof childValue === "string" || typeof childValue === "number")) {
+        candidates.push({ path: `user.${key}.${childKey}`, value: childValue });
+      }
+    }
+  }
+  return candidates;
+}
+
+function readPageDebug(profileId, visibleText, structuredSource) {
   const scriptSnippets = [];
   const scripts = Array.from(document.scripts);
 
@@ -63,6 +137,7 @@ function readPageDebug(profileId, visibleText) {
     matchedScriptCount: scriptSnippets.length,
     profileId,
     scriptSnippets,
+    structuredSource,
     url: location.href,
     visibleText: visibleText.slice(0, 5000),
   };
@@ -75,6 +150,9 @@ function collectDouyinProfile() {
 
   const profileRegion = document.querySelector("main") || document.querySelector('[role="main"]');
   const visibleText = profileRegion?.innerText ?? "";
+  const paceResult = findPaceProfile(profileId);
+  const structuredProfile = paceResult?.profile ?? null;
+  const structuredCandidates = collectStructuredCandidates(structuredProfile);
   const getMeta = (...selectors) => selectors
     .map((selector) => document.querySelector(selector)?.getAttribute("content")?.trim())
     .find(Boolean) ?? "";
@@ -98,15 +176,23 @@ function collectDouyinProfile() {
   const accountMatch = publicProfileText.match(/抖音号\s*[:：]\s*([^\s,，;；]+)/u);
   const followerMatch = publicProfileText.match(/([\d,.]+(?:\.\d+)?)\s*(万|亿|[wW])?\s*粉丝/u)
     || publicProfileText.match(/粉丝(?:数|量)?\s*[:：]?\s*([\d,.]+(?:\.\d+)?)\s*(万|亿|[wW])?/u);
+  const structuredFollower = structuredCandidates.find(({ path }) => /\.(followerCount|fansCount)$/iu.test(path));
 
   return {
-    debug: readPageDebug(profileId, visibleText),
+    debug: readPageDebug(profileId, visibleText, {
+      fieldCandidates: structuredCandidates,
+      matched: Boolean(structuredProfile),
+      scriptIndex: paceResult?.scriptIndex ?? null,
+      type: "self.__pace_f",
+    }),
     profile: {
-      description: clean(metaDescription, 1000),
-      followerCount: followerMatch ? parseFollowerCount(followerMatch[1], followerMatch[2]) : null,
-      nickname,
+      description: clean(structuredProfile?.desc || structuredProfile?.signature || metaDescription, 1000),
+      followerCount: structuredFollower
+        ? parseFollowerCount(structuredFollower.value)
+        : followerMatch ? parseFollowerCount(followerMatch[1], followerMatch[2]) : null,
+      nickname: clean(structuredProfile?.nickname || nickname, 100),
       platform: "douyin",
-      platformAccount: clean(accountMatch?.[1], 200),
+      platformAccount: clean(structuredProfile?.uniqueId || accountMatch?.[1], 200),
       profileUrl: `${location.origin}/user/${encodeURIComponent(profileId)}`,
     },
   };
