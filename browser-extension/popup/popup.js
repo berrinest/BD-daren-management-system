@@ -20,8 +20,18 @@ function setStatus(message, error = false) {
   fields.status.classList.toggle("error", error);
 }
 
-function extractDouyinProfile() {
-  const text = document.body?.innerText?.slice(0, 250000) ?? "";
+function extractDouyinProfile(expectedProfileId) {
+  const pageMatch = location.pathname.match(/^\/user\/([^/?#]+)/u);
+  let pageProfileId = "";
+  try {
+    pageProfileId = pageMatch?.[1] ? decodeURIComponent(pageMatch[1]) : "";
+  } catch {
+    throw new Error("请打开达人主页后再采集");
+  }
+  if (!pageProfileId || pageProfileId !== expectedProfileId) throw new Error("请打开达人主页后再采集");
+
+  const profileRegion = document.querySelector("main") || document.querySelector('[role="main"]');
+  const profileText = profileRegion?.innerText?.slice(0, 120000) ?? "";
   const getMeta = (...selectors) => selectors
     .map((selector) => document.querySelector(selector)?.getAttribute("content")?.trim())
     .find(Boolean) ?? "";
@@ -35,46 +45,74 @@ function extractDouyinProfile() {
     return Math.round(value);
   };
 
-  let structured = null;
-  const renderData = document.querySelector("#RENDER_DATA")?.textContent;
-  if (renderData) {
-    try {
-      const root = JSON.parse(decodeURIComponent(renderData));
-      const stack = [root];
-      let inspected = 0;
-      while (stack.length && inspected < 12000) {
-        const current = stack.pop();
-        inspected += 1;
-        if (!current || typeof current !== "object") continue;
-        if (typeof current.nickname === "string" && (current.uniqueId || current.shortId || current.signature || current.followerCount !== undefined)) {
-          structured = current;
-          break;
-        }
-        for (const value of Object.values(current)) if (value && typeof value === "object") stack.push(value);
+  const identifierKeys = ["secUid", "sec_uid", "secUserId", "sec_user_id"];
+  const readValue = (root, keys, maxDepth = 4) => {
+    const queue = [{ depth: 0, value: root }];
+    let inspected = 0;
+    while (queue.length && inspected < 1000) {
+      const { depth, value } = queue.shift();
+      inspected += 1;
+      if (!value || typeof value !== "object") continue;
+      for (const key of keys) {
+        const found = value[key];
+        if (typeof found === "string" || typeof found === "number") return found;
       }
+      if (depth >= maxDepth) continue;
+      for (const child of Object.values(value)) if (child && typeof child === "object") queue.push({ depth: depth + 1, value: child });
+    }
+    return null;
+  };
+  const findTargetProfile = (root) => {
+    const stack = [root];
+    let inspected = 0;
+    while (stack.length && inspected < 20000) {
+      const current = stack.pop();
+      inspected += 1;
+      if (!current || typeof current !== "object") continue;
+      const isTarget = identifierKeys.some((key) => String(current[key] ?? "") === expectedProfileId);
+      if (isTarget) return current;
+      for (const value of Object.values(current)) if (value && typeof value === "object") stack.push(value);
+    }
+    return null;
+  };
+
+  let structured = null;
+  const jsonSources = [];
+  const renderData = document.querySelector("#RENDER_DATA")?.textContent?.trim();
+  if (renderData) jsonSources.push({ encoded: true, value: renderData });
+  for (const script of document.querySelectorAll('script[type="application/json"], script#__NEXT_DATA__')) {
+    const value = script.textContent?.trim();
+    if (value && value.length <= 3000000 && value !== renderData) jsonSources.push({ encoded: false, value });
+    if (jsonSources.length >= 30) break;
+  }
+  for (const source of jsonSources) {
+    try {
+      const root = JSON.parse(source.encoded ? decodeURIComponent(source.value) : source.value);
+      structured = findTargetProfile(root);
+      if (structured) break;
     } catch {
-      structured = null;
+      // Ignore malformed or unrelated embedded state and continue with public fallbacks.
     }
   }
 
   const title = getMeta('meta[property="og:title"]', 'meta[name="twitter:title"]') || document.title;
-  const nicknameFromTitle = title.replace(/\s*[-_|]\s*抖音.*$/u, "").replace(/的抖音主页.*$/u, "").trim();
+  const rawNicknameFromTitle = title.replace(/\s*[-_|]\s*抖音.*$/u, "").replace(/的抖音主页.*$/u, "").trim();
+  const nicknameFromTitle = /^(抖音|记录美好生活)$/u.test(rawNicknameFromTitle) ? "" : rawNicknameFromTitle;
+  const structuredNickname = readValue(structured, ["nickname", "nickName"]);
   const nickname = clean(
-    structured?.nickname
-      || document.querySelector('[data-e2e="user-title"]')?.textContent
-      || document.querySelector('h1')?.textContent
+    structuredNickname
       || nicknameFromTitle,
     100,
   );
-  const accountMatch = text.match(/抖音号\s*[:：]\s*([^\s]+)/u);
-  const platformAccount = clean(structured?.uniqueId || structured?.shortId || accountMatch?.[1], 200);
-  const followerMatch = text.match(/([\d,.]+(?:\.\d+)?)\s*(万|亿|[wW])?\s*粉丝/u);
-  const structuredFollowers = structured?.followerCount ?? structured?.follower_count;
-  const followerCount = structuredFollowers !== undefined
+  const accountMatch = profileText.match(/抖音号\s*[:：]\s*([^\s]+)/u);
+  const platformAccount = clean(readValue(structured, ["uniqueId", "unique_id", "shortId", "short_id"]) || accountMatch?.[1], 200);
+  const followerMatch = profileText.match(/([\d,.]+(?:\.\d+)?)\s*(万|亿|[wW])?\s*粉丝/u);
+  const structuredFollowers = readValue(structured, ["followerCount", "follower_count"]);
+  const followerCount = structuredFollowers !== null
     ? parseFollowerCount(structuredFollowers)
     : followerMatch ? parseFollowerCount(followerMatch[1], followerMatch[2]) : null;
   const description = clean(
-    structured?.signature
+    readValue(structured, ["signature", "description", "bio"])
       || getMeta('meta[property="og:description"]', 'meta[name="description"]'),
     1000,
   );
@@ -85,7 +123,7 @@ function extractDouyinProfile() {
     nickname,
     platform: "douyin",
     platformAccount,
-    profileUrl: `${location.origin}${location.pathname}`,
+    profileUrl: `${location.origin}/user/${encodeURIComponent(pageProfileId)}`,
   };
 }
 
@@ -96,8 +134,16 @@ async function collectCurrentPage() {
     const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!tab?.id || !tab.url) throw new Error("无法读取当前标签页");
     const url = new URL(tab.url);
-    if (!url.hostname.endsWith("douyin.com")) throw new Error("第一阶段仅支持抖音公开达人主页");
-    const [{ result }] = await chrome.scripting.executeScript({ target: { tabId: tab.id }, func: extractDouyinProfile });
+    const profileMatch = url.pathname.match(/^\/user\/([^/?#]+)/u);
+    const isDouyin = url.hostname === "douyin.com" || url.hostname.endsWith(".douyin.com");
+    if (!isDouyin || !profileMatch?.[1]) throw new Error("请打开达人主页后再采集");
+    let profileId = "";
+    try {
+      profileId = decodeURIComponent(profileMatch[1]);
+    } catch {
+      throw new Error("请打开达人主页后再采集");
+    }
+    const [{ result }] = await chrome.scripting.executeScript({ args: [profileId], target: { tabId: tab.id }, func: extractDouyinProfile });
     if (!result) throw new Error("页面没有返回可采集信息");
     fields.nickname.value = result.nickname;
     fields.platform.value = result.platform;
