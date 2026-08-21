@@ -48,4 +48,9 @@ export const createTalentSchema = z.object({
   notes: optionalText(2000),
 });
 
+export const batchImportTalentsSchema = z
+  .array(createTalentSchema)
+  .min(1, "请至少导入一条达人资料")
+  .max(500, "单次最多导入 500 条达人资料");
+
 export type CreateTalentInput = z.infer<typeof createTalentSchema>;

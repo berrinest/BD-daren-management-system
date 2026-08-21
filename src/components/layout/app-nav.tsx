@@ -8,7 +8,7 @@ const navigation = [
   { href: "/talents", label: "达人库", icon: "♙" },
   { href: "/resources", label: "资源池", icon: "◎" },
   { href: "/tasks", label: "任务中心", icon: "◇" },
-  { href: "/data", label: "数据管理", icon: "⇅" },
+  { href: "/data", label: "达人数据", icon: "⇅" },
   { href: "/settings", label: "设置", icon: "⚙" },
 ] as const;
 
