@@ -8,6 +8,7 @@ type TaskActionsProps = {
   returnTo: "dashboard" | "talent" | "tasks" | "work";
   talentId: string;
   taskId: string;
+  showComplete?: boolean;
 };
 
 function TaskActionFields({
@@ -25,12 +26,13 @@ function TaskActionFields({
 }
 
 export function TaskActions(props: TaskActionsProps) {
+  const { showComplete = true } = props;
   return (
     <div className="flex flex-wrap gap-2">
-      <form action={completeTask}>
+      {showComplete ? <form action={completeTask}>
         <TaskActionFields {...props} />
         <FormSubmitButton className="rounded-lg bg-[#31594b] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#284a3e] disabled:cursor-not-allowed disabled:bg-[#91a59e]" label="完成" pendingLabel="处理中…" />
-      </form>
+      </form> : null}
       <form action={cancelTask}>
         <TaskActionFields {...props} />
         <FormSubmitButton className="rounded-lg border border-[#dfe5e1] px-3 py-1.5 text-xs font-medium text-slate-600 hover:bg-[#f4f6f4] disabled:cursor-not-allowed disabled:opacity-50" label="取消" pendingLabel="处理中…" />
