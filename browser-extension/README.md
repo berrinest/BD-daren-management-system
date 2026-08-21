@@ -14,14 +14,15 @@ Chrome 与 Edge 通用的 Manifest V3 插件。第一阶段仅对用户主动打
 1. 在浏览器中打开一个抖音公开达人主页。
 2. 点击工具栏中的“BD 达人资源采集”。
 3. 检查并按需修改昵称、账号、粉丝数和简介。
-4. 点击“打开系统确认”。
-5. 在 Web 系统 `/resources/capture` 页面补充赛道并确认保存。
+4. 保持已登录的 BD 系统标签页打开。
+5. 点击“采集到资源池”，由已登录页面在后台完成保存。
 
 插件默认打开 `https://bd-daren-management-system.vercel.app`。可以在 Popup 的“Web 系统地址”中改为 Preview 地址或本地开发地址，例如 `http://localhost:3001`。该设置只保存系统地址，不保存登录 Token。
 
 ## 权限说明
 
 - `activeTab`：仅在用户点击插件后访问当前标签页。
+- `host_permissions`：仅用于识别已打开的 BD 系统标签页，并将采集数据交给该已登录页面保存；不读取登录 Token。
 - `content script`：只在抖音 `/user/` 达人主页加载；收到 Popup 的主动采集消息后才读取公开页面信息。
 - `storage`：只保存 Web 系统地址。
 

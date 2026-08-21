@@ -2,10 +2,15 @@
   "manifest_version": 3,
   "name": "BD 达人资源采集",
   "description": "将当前公开达人主页资料发送到 BD 达人管理系统资源池。",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "permissions": [
     "activeTab",
     "storage"
+  ],
+  "host_permissions": [
+    "https://bd-daren-management-system.vercel.app/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*"
   ],
   "content_scripts": [
     {
