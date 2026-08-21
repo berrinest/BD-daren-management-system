@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>采集达人资源</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">BD CAPTURE</p>
+        <h1>采集当前达人</h1>
+        <p id="status" class="status">正在读取当前页面…</p>
+      </header>
+
+      <form id="capture-form">
+        <label>昵称<input id="nickname" maxlength="100" required /></label>
+        <div class="two-columns">
+          <label>平台<select id="platform"><option value="douyin">抖音</option></select></label>
+          <label>平台账号<input id="platform-account" maxlength="200" /></label>
+        </div>
+        <label>粉丝数量<input id="follower-count" min="0" step="1" type="number" /></label>
+        <label>简介<textarea id="description" maxlength="1000" rows="3"></textarea></label>
+        <label>主页链接<input id="profile-url" readonly type="url" /></label>
+        <details>
+          <summary>Web 系统地址</summary>
+          <input id="web-app-url" placeholder="https://your-app.vercel.app" type="url" />
+        </details>
+        <div class="actions">
+          <button id="refresh" class="secondary" type="button">重新读取</button>
+          <button id="send" type="submit">打开系统确认</button>
+        </div>
+      </form>
+    </main>
+    <script src="popup.js"></script>
+  </body>
+</html>

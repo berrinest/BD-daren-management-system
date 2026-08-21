@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "BD 达人资源采集",
+  "description": "将当前公开达人主页资料发送到 BD 达人管理系统资源池。",
+  "version": "0.1.0",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "action": {
+    "default_title": "采集达人资源",
+    "default_popup": "popup/index.html"
+  }
+}

@@ -37,6 +37,18 @@ export const createTalentResourceSchema = z.object({
   notes: optionalText(2000),
 });
 
+export const captureResourcePrefillSchema = z.object({
+  follower_count: z.preprocess(
+    (value) => value === "" || value === undefined ? null : Number(value),
+    z.number().int().nonnegative().nullable().catch(null),
+  ),
+  nickname: z.string().trim().max(100).catch(""),
+  notes: z.string().trim().max(2000).catch(""),
+  platform_account: z.string().trim().max(200).catch(""),
+  primary_platform: z.enum(TALENT_PLATFORMS).catch("other"),
+  profile_url: z.union([z.url().max(1500), z.literal("")]).catch(""),
+});
+
 export const resourceSourceInputSchema = z.object({
   source_type: z.enum(RESOURCE_SOURCE_TYPES),
   source_detail: optionalText(300),

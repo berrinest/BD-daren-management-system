@@ -1,0 +1,28 @@
+# BD 达人资源采集插件 MVP
+
+Chrome 与 Edge 通用的 Manifest V3 插件。第一阶段仅对用户主动打开的抖音公开达人主页进行一次性读取，不自动浏览、不模拟操作，也不直接连接 Supabase。
+
+## 本地安装
+
+1. 打开 Chrome 的 `chrome://extensions`，或 Edge 的 `edge://extensions`。
+2. 开启“开发者模式”。
+3. 点击“加载已解压的扩展程序”。
+4. 选择本项目的 `browser-extension` 目录。
+
+## 使用流程
+
+1. 在浏览器中打开一个抖音公开达人主页。
+2. 点击工具栏中的“BD 达人资源采集”。
+3. 检查并按需修改昵称、账号、粉丝数和简介。
+4. 点击“打开系统确认”。
+5. 在 Web 系统 `/resources/capture` 页面补充赛道并确认保存。
+
+插件默认打开 `https://bd-daren-management-system.vercel.app`。可以在 Popup 的“Web 系统地址”中改为 Preview 地址或本地开发地址，例如 `http://localhost:3001`。该设置只保存系统地址，不保存登录 Token。
+
+## 权限说明
+
+- `activeTab`：仅在用户点击插件后访问当前标签页。
+- `scripting`：执行一次公开页面信息提取。
+- `storage`：只保存 Web 系统地址。
+
+插件没有配置平台 Host Permission，也不会后台持续读取页面。

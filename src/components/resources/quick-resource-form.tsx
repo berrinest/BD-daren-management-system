@@ -35,35 +35,42 @@ function SaveButton({ intent, label }: { intent: "continue" | "save"; label: str
 }
 
 type Props = {
+  captureMode?: boolean;
   defaultCategory?: string;
+  defaultFollowerCount?: number | null;
+  defaultNickname?: string;
+  defaultNotes?: string;
   defaultPlatform?: string;
+  defaultPlatformAccount?: string;
   defaultPriority?: string;
+  defaultProfileUrl?: string;
+  defaultSourceDetail?: string;
 };
 
-export function QuickResourceForm({ defaultCategory = "", defaultPlatform = "douyin", defaultPriority = "normal" }: Props) {
+export function QuickResourceForm({ captureMode = false, defaultCategory = "", defaultFollowerCount = null, defaultNickname = "", defaultNotes = "", defaultPlatform = "douyin", defaultPlatformAccount = "", defaultPriority = "normal", defaultProfileUrl = "", defaultSourceDetail = "" }: Props) {
   const initialPlatform = TALENT_PLATFORMS.find((value) => value === defaultPlatform) ?? "douyin";
   const initialPriority = TALENT_PRIORITIES.find((value) => value === defaultPriority) ?? "normal";
   const initialCategory = TALENT_CATEGORIES.find((value) => value === defaultCategory) ?? "";
   const [platform, setPlatform] = useState<Platform>(initialPlatform);
 
   return <form action={createTalentResource} autoComplete="off" className="mt-6 rounded-2xl border border-[#e7ebe8] bg-white p-5 shadow-sm">
-    <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start"><div><h2 className="text-sm font-semibold text-[#35443e]">快速录入资源</h2><p className="mt-1 text-xs text-slate-400">粘贴主页链接会自动识别平台；保存并继续时保留平台、赛道和优先级。</p></div><span className="text-xs text-slate-400">* 为必填项</span></div>
+    <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start"><div><h2 className="text-sm font-semibold text-[#35443e]">{captureMode ? "确认插件采集结果" : "快速录入资源"}</h2><p className="mt-1 text-xs text-slate-400">{captureMode ? "请核对公开资料并补充必填赛道，保存仍使用现有查重和权限流程。" : "粘贴主页链接会自动识别平台；保存并继续时保留平台、赛道和优先级。"}</p></div><span className="text-xs text-slate-400">* 为必填项</span></div>
     <div className="mt-4 grid gap-3 md:grid-cols-4">
-      <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="nickname" placeholder="达人昵称 *" required />
+      <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" defaultValue={defaultNickname} name="nickname" placeholder="达人昵称 *" required />
       <select className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="primary_platform" onChange={(event) => setPlatform(event.target.value as Platform)} value={platform}>{TALENT_PLATFORMS.map((value) => <option key={value} value={value}>{TALENT_PLATFORM_LABELS[value]}</option>)}</select>
       <select className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" defaultValue={initialCategory} name="category" required><option value="">选择赛道 *</option>{TALENT_CATEGORIES.map((value) => <option key={value}>{value}</option>)}</select>
       <select className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" defaultValue={initialPriority} name="priority">{TALENT_PRIORITIES.map((value) => <option key={value} value={value}>{TALENT_PRIORITY_LABELS[value]}</option>)}</select>
-      <input autoComplete="off" className="rounded-lg border border-[#afc2b9] bg-[#fbfdfc] px-3 py-2.5 text-sm md:col-span-2" name="profile_url" onChange={(event) => { const detected = detectPlatform(event.target.value); if (detected) setPlatform(detected); }} placeholder="达人主页链接（自动识别平台并用于查重）" type="url" />
+      <input autoComplete="off" className="rounded-lg border border-[#afc2b9] bg-[#fbfdfc] px-3 py-2.5 text-sm md:col-span-2" defaultValue={defaultProfileUrl} name="profile_url" onChange={(event) => { const detected = detectPlatform(event.target.value); if (detected) setPlatform(detected); }} placeholder="达人主页链接（自动识别平台并用于查重）" type="url" />
       <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="wechat" placeholder="微信号" />
-      <div className="flex flex-wrap gap-2"><SaveButton intent="continue" label="保存并继续" /><SaveButton intent="save" label="保存" /></div>
+      <div className="flex flex-wrap gap-2">{captureMode ? <SaveButton intent="save" label="确认加入资源池" /> : <><SaveButton intent="continue" label="保存并继续" /><SaveButton intent="save" label="保存" /></>}</div>
     </div>
     <details className="mt-4 border-t border-[#edf0ee] pt-4"><summary className="cursor-pointer text-sm font-medium text-[#557064]">补充账号、粉丝、来源和备注（可选）</summary><div className="mt-4 grid gap-3 md:grid-cols-4">
-      <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="platform_account" placeholder="平台账号" />
-      <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" min="0" name="follower_count" placeholder="粉丝数量" type="number" />
+      <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" defaultValue={defaultPlatformAccount} name="platform_account" placeholder="平台账号" />
+      <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" defaultValue={defaultFollowerCount ?? ""} min="0" name="follower_count" placeholder="粉丝数量" type="number" />
       <select className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" defaultValue="platform_search" name="source_type">{RESOURCE_SOURCE_TYPES.map((value) => <option key={value} value={value}>{RESOURCE_SOURCE_TYPE_LABELS[value]}</option>)}</select>
-      <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" name="source_detail" placeholder="来源详情，如搜索词" />
+      <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm" defaultValue={defaultSourceDetail} name="source_detail" placeholder="来源详情，如搜索词" />
       <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm md:col-span-2" name="source_url" placeholder="发现页面链接" type="url" />
-      <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm md:col-span-2" name="notes" placeholder="备注" />
+      <input autoComplete="off" className="rounded-lg border border-[#dfe5e1] px-3 py-2.5 text-sm md:col-span-2" defaultValue={defaultNotes} name="notes" placeholder="备注" />
     </div></details>
   </form>;
 }
