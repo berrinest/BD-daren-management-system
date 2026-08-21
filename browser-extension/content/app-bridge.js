@@ -6,44 +6,32 @@ if (!globalThis.__BD_CAPTURE_APP_BRIDGE__) {
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message?.type !== "captureTalentResource") return false;
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-    void (async () => {
-      try {
-        const endpoint = new URL(message.endpoint, location.origin);
-        if (endpoint.origin !== location.origin || endpoint.pathname !== "/api/resources/capture") {
-          throw new Error("采集接口地址无效");
-        }
-        const response = await fetch(endpoint, {
-          body: JSON.stringify(message.payload),
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          method: "POST",
-          signal: controller.signal,
-        });
-        if (response.redirected && new URL(response.url).pathname === "/login") {
-          sendResponse({ error: "请先登录 BD 系统", ok: false, status: 401 });
-          return;
-        }
-        const data = await response.json().catch(() => ({}));
-        sendResponse({
-          error: data.error || null,
-          message: data.message || null,
-          ok: response.ok,
-          status: response.status,
-        });
-      } catch (error) {
-        sendResponse({
-          error: error instanceof DOMException && error.name === "AbortError"
-            ? "BD 系统响应超时，请稍后重试"
-            : error instanceof Error ? error.message : "无法连接 BD 系统",
-          ok: false,
-          status: 0,
-        });
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    })();
+    const endpoint = new URL(message.endpoint, location.origin);
+    if (endpoint.origin !== location.origin || endpoint.pathname !== "/api/resources/capture") {
+      sendResponse({ error: "采集接口地址无效", ok: false, status: 0 });
+      return false;
+    }
+
+    const requestId = crypto.randomUUID();
+    const timeoutId = setTimeout(() => {
+      window.removeEventListener("message", handleResult);
+      sendResponse({ error: "BD 页面采集桥未响应，请刷新 BD 系统标签页", ok: false, status: 0 });
+    }, 18000);
+    function handleResult(event) {
+      const data = event.data;
+      if (event.source !== window || event.origin !== location.origin) return;
+      if (data?.source !== "bd-capture-web" || data.type !== "captureTalentResourceResult" || data.requestId !== requestId) return;
+      clearTimeout(timeoutId);
+      window.removeEventListener("message", handleResult);
+      sendResponse(data.response);
+    }
+    window.addEventListener("message", handleResult);
+    window.postMessage({
+      payload: message.payload,
+      requestId,
+      source: "bd-capture-extension",
+      type: "captureTalentResource",
+    }, location.origin);
     return true;
   });
 }

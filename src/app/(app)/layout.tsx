@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { BrowserCaptureBridge } from "@/components/resources/browser-capture-bridge";
 import { createClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +23,7 @@ export default async function ProtectedLayout({
       <AppSidebar />
       <div className="min-h-screen">
         <AppHeader email={data.claims.email as string | undefined} />
+        <BrowserCaptureBridge />
         {children}
       </div>
     </div>

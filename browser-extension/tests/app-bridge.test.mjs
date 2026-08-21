@@ -4,26 +4,33 @@ import vm from "node:vm";
 
 let listener;
 let requestedPayload;
+const messageListeners = new Set();
 const context = {
-  AbortController,
   chrome: { runtime: { onMessage: { addListener(value) { listener = value; } } } },
   clearTimeout() {},
-  DOMException,
-  fetch: async (endpoint, options) => {
-    assert.equal(String(endpoint), "https://bd-daren-management-system.vercel.app/api/resources/capture");
-    assert.equal(options.credentials, "include", "bridge must include the signed-in web session cookie");
-    requestedPayload = JSON.parse(options.body);
-    return {
-      async json() { return { message: "已加入资源池" }; },
-      ok: true,
-      redirected: false,
-      status: 201,
-      url: String(endpoint),
-    };
-  },
+  crypto: { randomUUID() { return "request-1"; } },
   location: { origin: "https://bd-daren-management-system.vercel.app" },
   setTimeout() { return 1; },
   URL,
+  window: {
+    addEventListener(type, value) { if (type === "message") messageListeners.add(value); },
+    postMessage(message) {
+      requestedPayload = message.payload;
+      queueMicrotask(() => {
+        for (const value of messageListeners) value({
+          data: {
+            requestId: message.requestId,
+            response: { message: "已加入资源池", ok: true, status: 201 },
+            source: "bd-capture-web",
+            type: "captureTalentResourceResult",
+          },
+          origin: context.location.origin,
+          source: context.window,
+        });
+      });
+    },
+    removeEventListener(type, value) { if (type === "message") messageListeners.delete(value); },
+  },
 };
 context.globalThis = context;
 
