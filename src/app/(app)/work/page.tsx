@@ -6,6 +6,10 @@ import { CopyButton } from "@/components/ui/copy-button";
 import { FormSubmitButton } from "@/components/ui/form-submit-button";
 import { QuickTaskResultForm } from "@/components/work/quick-task-result-form";
 import {
+  getFollowUpMethodLabel,
+  getFollowUpResultLabel,
+  getResourceContactMethodLabel,
+  getResourceContactResultLabel,
   getResourceProcessingStatusLabel,
   getTalentPlatformLabel,
   getTalentPriorityLabel,
@@ -33,6 +37,9 @@ export default async function WorkPage({ searchParams }: Props) {
   const errorMessage = (params.error ?? "").slice(0, 200);
   const notice = ["deferred", "task-completed", "task-cancelled", "task-result-recorded", "resource-completed"].find((value) => value === params.notice);
   const currentItemId = currentItem?.kind === "talent_task" ? currentItem.taskId : currentItem?.resourceId;
+  const recentContactSummary = currentItem?.recentContact
+    ? `${currentItem.kind === "talent_task" ? getFollowUpMethodLabel(currentItem.recentContact.method) : getResourceContactMethodLabel(currentItem.recentContact.method)} · ${currentItem.kind === "talent_task" ? getFollowUpResultLabel(currentItem.recentContact.result) : getResourceContactResultLabel(currentItem.recentContact.result)}`
+    : null;
 
   return <main className="p-5 md:p-8"><section className="mx-auto max-w-4xl">
     <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-start"><div><p className="text-xs font-semibold tracking-[0.18em] text-[#668074]">DAILY FOCUS</p><h1 className="mt-2 text-2xl font-semibold text-[#26332e]">开始今日工作</h1><p className="mt-2 text-sm text-slate-500">按工作台顺序逐项处理，完成后自动进入下一项。</p></div><Link className="text-sm font-medium text-[#557064] hover:underline" href="/dashboard">返回今日工作台</Link></div>
@@ -47,6 +54,7 @@ export default async function WorkPage({ searchParams }: Props) {
     {!currentItem ? <section className="mt-6 rounded-2xl border border-[#e7ebe8] bg-white px-6 py-16 text-center shadow-sm"><h2 className="text-xl font-semibold text-[#26332e]">今日工作已处理完成</h2><p className="mt-2 text-sm text-slate-500">当前没有逾期、今日到期或新资源事项。</p><Link className="mt-6 inline-flex rounded-lg bg-[#31594b] px-4 py-2.5 text-sm font-semibold text-white" href="/dashboard">返回工作台</Link></section> : <>
       <section className="mt-6 rounded-2xl border border-[#e7ebe8] bg-white p-6 shadow-sm md:p-8">
         <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-start"><div><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-2 py-1 text-xs font-semibold ${currentItem.timing === "overdue" ? "bg-red-50 text-red-700" : currentItem.timing === "today" ? "bg-amber-50 text-amber-700" : "bg-sky-50 text-sky-700"}`}>{timingLabels[currentItem.timing]}</span><span className="rounded-full bg-[#eaf3ef] px-2 py-1 text-xs font-semibold text-[#31594b]">{currentItem.kind === "talent_task" ? "达人" : "资源"}</span></div><div className="mt-4 flex items-center gap-2"><h2 className="text-2xl font-semibold text-[#26332e]">{currentItem.nickname}</h2><CopyButton label="复制昵称" value={currentItem.nickname} /></div><p className="mt-2 text-sm text-slate-500">{getTalentPlatformLabel(currentItem.platform)} · {getTalentPriorityLabel(currentItem.priority)}</p></div><div className="text-left sm:text-right"><p className="text-sm font-medium text-[#31594b]">剩余 {dashboardData.workItems.length} 项</p><p className="mt-1 text-xs text-slate-400">完成本项后自动刷新队列</p></div></div>
+        <div className="mt-5 rounded-xl border border-[#e4e9e6] bg-[#fbfcfb] px-4 py-3"><p className="text-xs font-medium text-slate-400">最近联系</p>{currentItem.recentContact ? <div className="mt-1 flex flex-col justify-between gap-1 sm:flex-row sm:items-center"><p className="text-sm font-semibold text-[#35443e]">{recentContactSummary}</p><p className="text-xs text-slate-500">{formatDateTime(currentItem.recentContact.occurredAt)}</p></div> : <p className="mt-1 text-sm text-slate-500">暂无联系记录</p>}</div>
 
         {currentItem.kind === "talent_task" ? <>
           <dl className="mt-6 grid gap-3 border-t border-[#edf0ee] pt-6 sm:grid-cols-2 lg:grid-cols-4"><div className="rounded-xl bg-[#f8faf8] p-4"><dt className="text-xs text-slate-400">微信号</dt><dd className="mt-1.5 flex items-center justify-between gap-2 text-sm font-medium text-[#35443e]"><span className="truncate">{currentItem.wechat || "未填写"}</span>{currentItem.wechat ? <CopyButton value={currentItem.wechat} /> : null}</dd></div><div className="rounded-xl bg-[#f8faf8] p-4"><dt className="text-xs text-slate-400">当前阶段</dt><dd className="mt-1.5 text-sm font-medium text-[#35443e]">{getTalentStageLabel(currentItem.state)}</dd></div><div className="rounded-xl bg-[#f8faf8] p-4"><dt className="text-xs text-slate-400">当前任务</dt><dd className="mt-1.5 text-sm font-medium text-[#35443e]">{getTaskTypeLabel(currentItem.actionType)}</dd></div><div className="rounded-xl bg-[#f8faf8] p-4"><dt className="text-xs text-slate-400">到期时间</dt><dd className="mt-1.5 text-sm font-medium text-[#35443e]">{currentItem.dueAt ? formatDateTime(currentItem.dueAt) : "未安排"}</dd></div></dl>

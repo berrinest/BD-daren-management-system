@@ -36,10 +36,12 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
     { data: talent, error },
     { data: pendingTasks, error: tasksError },
     { data: followUpRecords, error: followUpsError },
+    { data: originResource },
   ] = await Promise.all([
     supabase.from("talents").select("*").eq("id", id).eq("user_id", userId).is("archived_at", null).maybeSingle(),
     supabase.from("tasks").select("id, talent_id, task_type, due_at, notes").eq("talent_id", id).eq("user_id", userId).eq("status", "pending").order("due_at", { ascending: true }),
     supabase.from("follow_up_records").select("id, method, notes, occurred_at, result, task_id").eq("talent_id", id).eq("user_id", userId).order("occurred_at", { ascending: false }),
+    supabase.from("talent_resources").select("id, source, discovered_at").eq("converted_talent_id", id).eq("user_id", userId).eq("status", "converted").maybeSingle(),
   ]);
   if (error || !talent) notFound();
 
@@ -124,6 +126,7 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
         </div>
         <dl className="mt-7 grid gap-4 border-t border-[#edf0ee] pt-6 sm:grid-cols-2 lg:grid-cols-3">{details.map(({ copyValue, label, value }) => <div className="rounded-xl bg-[#f8faf8] p-4" key={label}><dt className="text-xs font-medium text-slate-400">{label}</dt><dd className="mt-1.5 flex items-center justify-between gap-2 text-sm font-medium text-[#35443e]"><span className="min-w-0 truncate">{value}</span>{copyValue ? <CopyButton value={copyValue} /> : null}</dd></div>)}</dl>
         {talent.profile_url ? <div className="mt-6 flex flex-wrap items-center gap-3 text-sm"><a className="font-medium text-[#31594b] hover:underline" href={talent.profile_url} rel="noreferrer" target="_blank">打开达人主页 ↗</a><CopyButton label="复制主页链接" value={talent.profile_url} /></div> : null}
+        {originResource ? <div className="mt-6 grid gap-3 rounded-xl border border-[#e4e9e6] bg-[#fbfcfb] p-4 text-sm sm:grid-cols-2"><div><p className="text-xs font-medium text-slate-400">资源发现来源</p><p className="mt-1.5 font-medium text-[#35443e]">{originResource.source || "未填写"}</p></div><div><p className="text-xs font-medium text-slate-400">首次发现时间</p><p className="mt-1.5 font-medium text-[#35443e]">{formatDateTime(originResource.discovered_at)}</p></div></div> : null}
         <div className="mt-6 border-t border-[#edf0ee] pt-6"><h2 className="text-sm font-semibold text-[#35443e]">联系备注</h2><p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-600">{talent.notes || "暂无备注"}</p></div>
       </div>
 
