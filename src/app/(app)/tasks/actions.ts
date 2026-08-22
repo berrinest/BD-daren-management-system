@@ -5,7 +5,67 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 
 import { createClient } from "@/lib/supabase/server";
-import { createTaskSchema, taskMutationSchema } from "@/lib/validations";
+import {
+  bulkCreateResourceTasksSchema,
+  createTaskSchema,
+  taskMutationSchema,
+} from "@/lib/validations";
+
+export async function bulkCreateResourceTasks(formData: FormData) {
+  const input = bulkCreateResourceTasksSchema.safeParse({
+    resource_ids: formData.getAll("resource_ids"),
+    task_type: formData.get("bulk_task_type"),
+    due_at: formData.get("bulk_task_due_at"),
+    notes: formData.get("bulk_task_notes"),
+    next_action: formData.get("bulk_next_action"),
+  });
+
+  if (!input.success) {
+    redirect(`/resources?error=${encodeURIComponent(input.error.issues[0]?.message ?? "请检查任务信息")}`);
+  }
+
+  const supabase = await createClient();
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
+  if (!userId) redirect("/login");
+
+  const { data: resources, error: resourceError } = await supabase
+    .from("talent_resources")
+    .select("id")
+    .in("id", input.data.resource_ids)
+    .eq("user_id", userId)
+    .eq("status", "new");
+
+  if (resourceError) redirect("/resources?error=资源验证失败，请稍后重试");
+
+  const validResourceIds = resources?.map((resource) => resource.id) ?? [];
+  if (validResourceIds.length > 0) {
+    const dueAt = input.data.due_at.toISOString();
+    const { error } = await supabase.from("tasks").insert(
+      validResourceIds.map((resourceId) => ({
+        creator_id: userId,
+        due_at: dueAt,
+        execution_source: "manual",
+        next_action: input.data.next_action,
+        next_action_at: dueAt,
+        notes: input.data.notes,
+        resource_id: resourceId,
+        status: "pending",
+        task_type: input.data.task_type,
+        user_id: userId,
+      })),
+    );
+    if (error) redirect("/resources?error=批量创建任务失败，请稍后重试");
+  }
+
+  const success = validResourceIds.length;
+  const skipped = input.data.resource_ids.length - success;
+  revalidatePath("/dashboard");
+  revalidatePath("/resources");
+  revalidatePath("/tasks");
+  revalidatePath("/work");
+  redirect(`/resources?notice=batch-tasks&success=${success}&skipped=${skipped}`);
+}
 
 function taskRedirect(returnTo: "dashboard" | "talent" | "tasks" | "work", talentId: string, notice?: string) {
   if (returnTo === "work") {

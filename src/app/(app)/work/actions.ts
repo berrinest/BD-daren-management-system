@@ -75,7 +75,8 @@ export async function deferWorkItem(formData: FormData) {
   if (!userId) redirect("/login");
 
   const deferredUntil = getShanghaiTomorrowAtTen().toISOString();
-  const result = input.data.item_kind === "talent_task"
+  const isTask = input.data.item_kind === "talent_task" || input.data.item_kind === "resource_task";
+  const result = isTask
     ? await supabase
       .from("tasks")
       .update({ due_at: deferredUntil })
@@ -97,7 +98,7 @@ export async function deferWorkItem(formData: FormData) {
 
   revalidatePath("/dashboard");
   revalidatePath("/work");
-  if (input.data.item_kind === "talent_task") {
+  if (isTask) {
     revalidatePath("/tasks");
   } else {
     revalidatePath("/resources");

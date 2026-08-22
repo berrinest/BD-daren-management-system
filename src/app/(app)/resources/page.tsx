@@ -17,7 +17,7 @@ const RESOURCE_FILTER_LABELS: Record<(typeof RESOURCE_FILTERS)[number], string> 
   no_plan: "无下一步计划",
 };
 
-type Props = { searchParams: Promise<{ captureCategory?: string; capturePlatform?: string; capturePriority?: string; category?: string; duplicateFields?: string; duplicateId?: string; duplicateKind?: string; duplicateNickname?: string; error?: string; failed?: string; filter?: string; notice?: string; priority?: string; q?: string; status?: string; success?: string }> };
+type Props = { searchParams: Promise<{ captureCategory?: string; capturePlatform?: string; capturePriority?: string; category?: string; duplicateFields?: string; duplicateId?: string; duplicateKind?: string; duplicateNickname?: string; error?: string; failed?: string; filter?: string; notice?: string; priority?: string; q?: string; skipped?: string; status?: string; success?: string }> };
 
 export default async function ResourcesPage({ searchParams }: Props) {
   const params = await searchParams;
@@ -31,6 +31,7 @@ export default async function ResourcesPage({ searchParams }: Props) {
   const search = (params.q ?? "").trim().slice(0, 100);
   const successCount = /^\d+$/.test(params.success ?? "") ? Number(params.success) : 0;
   const failedCount = /^\d+$/.test(params.failed ?? "") ? Number(params.failed) : 0;
+  const skippedCount = /^\d+$/.test(params.skipped ?? "") ? Number(params.skipped) : 0;
   const duplicateId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(params.duplicateId ?? "") ? params.duplicateId : undefined;
   const duplicateKind = params.duplicateKind === "talent" || params.duplicateKind === "resource" ? params.duplicateKind : undefined;
   const duplicateFields = (params.duplicateFields ?? "").slice(0, 100);
@@ -61,6 +62,7 @@ export default async function ResourcesPage({ searchParams }: Props) {
     {params.notice === "batch-priority" ? <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">批量优先级处理完成：成功 {successCount} 条，未处理 {failedCount} 条。</p> : null}
     {params.notice === "batch-converted" ? <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">批量转换完成：成功 {successCount} 条，失败 {failedCount} 条。</p> : null}
     {params.notice === "batch-deleted" ? <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">批量删除完成：成功 {successCount} 条，未删除 {failedCount} 条。</p> : null}
+    {params.notice === "batch-tasks" ? <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-800">BD任务创建完成：成功 {successCount} 条，跳过 {skippedCount} 条。</p> : null}
     <QuickResourceForm defaultCategory={captureCategory} defaultPlatform={capturePlatform} defaultPriority={capturePriority} />
     <form className="mt-5 grid gap-3 rounded-2xl border border-[#e7ebe8] bg-white p-4 shadow-sm md:grid-cols-6">
       <input className="rounded-lg border border-[#dfe5e1] px-3 py-2 text-sm" defaultValue={search} name="q" placeholder="搜索昵称" />

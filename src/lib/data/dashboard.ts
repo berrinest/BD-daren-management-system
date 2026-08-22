@@ -17,7 +17,7 @@ export type DashboardWorkItem = {
   dueAt: string | null;
   followerCount?: number | null;
   id: string;
-  kind: "talent_task" | "resource";
+  kind: "talent_task" | "resource_task" | "resource";
   nickname: string;
   platform: string;
   platformAccount?: string | null;
@@ -73,7 +73,7 @@ export async function getDashboardData() {
   const { todayStart, tomorrowStart } = getShanghaiDayRange();
   const inactivityCutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
   const [tasksResult, dueResourcesResult, newResourcesResult, staleCandidatesResult, noPlanResourcesResult, staleResourcesResult] = await Promise.all([
-    supabase.from("tasks").select("id, talent_id, task_type, due_at, talents!tasks_talent_owner_fk!inner(id, nickname, primary_platform, platform_account, profile_url, follower_count, tags, priority, stage, archived_at, wechat)").eq("user_id", userId).eq("status", "pending").is("talents.archived_at", null).lt("due_at", tomorrowStart),
+    supabase.from("tasks").select("id, talent_id, resource_id, task_type, due_at, talents!tasks_talent_owner_fk(id, nickname, primary_platform, platform_account, profile_url, follower_count, tags, priority, stage, archived_at, wechat), talent_resources!tasks_resource_owner_fk(id, nickname, primary_platform, platform_account, profile_url, follower_count, category, priority, processing_status, status, wechat)").eq("user_id", userId).eq("status", "pending").lt("due_at", tomorrowStart),
     supabase.from("talent_resources").select("id, nickname, primary_platform, platform_account, profile_url, follower_count, category, priority, processing_status, next_action_at, wechat").eq("user_id", userId).eq("status", "new").neq("processing_status", "paused").neq("processing_status", "pending_add").not("next_action_at", "is", null).lt("next_action_at", tomorrowStart),
     supabase.from("talent_resources").select("id, nickname, primary_platform, platform_account, profile_url, follower_count, category, priority, processing_status, discovered_at, wechat").eq("user_id", userId).eq("status", "new").eq("processing_status", "pending_add").or(`next_action_at.is.null,next_action_at.lt.${tomorrowStart}`),
     supabase.from("talents").select("id, nickname, primary_platform, priority, stage, created_at, updated_at").eq("user_id", userId).is("archived_at", null).neq("priority", "paused").not("stage", "in", "(completed,rejected)").lt("created_at", inactivityCutoff).lt("updated_at", inactivityCutoff).order("updated_at", { ascending: true }).limit(100),
@@ -83,10 +83,11 @@ export async function getDashboardData() {
 
   if (tasksResult.error || dueResourcesResult.error || newResourcesResult.error || staleCandidatesResult.error || noPlanResourcesResult.error || staleResourcesResult.error) throw new Error("Dashboard data could not be loaded");
 
-  const taskTalentIds = [...new Set((tasksResult.data ?? []).map((task) => task.talent_id))];
+  const taskTalentIds = [...new Set((tasksResult.data ?? []).map((task) => task.talent_id).filter((id): id is string => Boolean(id)))];
+  const taskResourceIds = [...new Set((tasksResult.data ?? []).map((task) => task.resource_id).filter((id): id is string => Boolean(id)))];
   const staleCandidateIds = (staleCandidatesResult.data ?? []).map((talent) => talent.id);
   const contactTalentIds = [...new Set([...taskTalentIds, ...staleCandidateIds])];
-  const resourceIds = [...new Set([...(dueResourcesResult.data ?? []), ...(newResourcesResult.data ?? [])].map((resource) => resource.id))];
+  const resourceIds = [...new Set([...taskResourceIds, ...[...(dueResourcesResult.data ?? []), ...(newResourcesResult.data ?? [])].map((resource) => resource.id)])];
   const emptyId = "00000000-0000-0000-0000-000000000000";
   const [talentContactsResult, resourceContactsResult, candidateTasksResult] = await Promise.all([
     supabase.from("talents").select("id, follow_up_records(occurred_at, method, result)").eq("user_id", userId).in("id", contactTalentIds.length > 0 ? contactTalentIds : [emptyId]).order("occurred_at", { ascending: false, referencedTable: "follow_up_records" }).limit(1, { referencedTable: "follow_up_records" }),
@@ -107,27 +108,55 @@ export async function getDashboardData() {
     if (contact) resourceContactMap.set(resource.id, { method: contact.method, occurredAt: contact.occurred_at, result: contact.result });
   }
 
-  const taskItems: DashboardWorkItem[] = (tasksResult.data ?? []).map((task) => ({
-    actionType: task.task_type,
-    category: task.talents.tags[0] ?? null,
-    dueAt: task.due_at,
-    followerCount: task.talents.follower_count,
-    id: `task:${task.id}`,
-    kind: "talent_task",
-    nickname: task.talents.nickname,
-    platform: task.talents.primary_platform,
-    platformAccount: task.talents.platform_account,
-    priority: task.talents.priority,
-    profileUrl: task.talents.profile_url,
-    recentContact: talentContactMap.get(task.talent_id) ?? null,
-    state: task.talents.stage,
-    talentId: task.talent_id,
-    taskId: task.id,
-    timing: task.due_at < todayStart ? "overdue" : "today",
-    wechat: task.talents.wechat,
-  }));
+  const taskItems = (tasksResult.data ?? []).flatMap<DashboardWorkItem>((task) => {
+    if (task.talent_id && task.talents && !task.talents.archived_at) {
+      return [{
+        actionType: task.task_type,
+        category: task.talents.tags[0] ?? null,
+        dueAt: task.due_at,
+        followerCount: task.talents.follower_count,
+        id: `task:${task.id}`,
+        kind: "talent_task" as const,
+        nickname: task.talents.nickname,
+        platform: task.talents.primary_platform,
+        platformAccount: task.talents.platform_account,
+        priority: task.talents.priority,
+        profileUrl: task.talents.profile_url,
+        recentContact: talentContactMap.get(task.talent_id) ?? null,
+        state: task.talents.stage,
+        talentId: task.talent_id,
+        taskId: task.id,
+        timing: task.due_at < todayStart ? "overdue" as const : "today" as const,
+        wechat: task.talents.wechat,
+      }];
+    }
+    if (task.resource_id && task.talent_resources?.status === "new") {
+      return [{
+        actionType: task.task_type,
+        category: task.talent_resources.category,
+        dueAt: task.due_at,
+        followerCount: task.talent_resources.follower_count,
+        id: `task:${task.id}`,
+        kind: "resource_task" as const,
+        nickname: task.talent_resources.nickname,
+        platform: task.talent_resources.primary_platform,
+        platformAccount: task.talent_resources.platform_account,
+        priority: task.talent_resources.priority,
+        profileUrl: task.talent_resources.profile_url,
+        recentContact: resourceContactMap.get(task.resource_id) ?? null,
+        resourceId: task.resource_id,
+        state: task.talent_resources.processing_status,
+        taskId: task.id,
+        timing: task.due_at < todayStart ? "overdue" as const : "today" as const,
+        wechat: task.talent_resources.wechat,
+      }];
+    }
+    return [];
+  });
 
-  const dueResourceItems: DashboardWorkItem[] = (dueResourcesResult.data ?? []).map((resource) => ({
+  const resourcesWithPendingTasks = new Set(taskResourceIds);
+
+  const dueResourceItems: DashboardWorkItem[] = (dueResourcesResult.data ?? []).filter((resource) => !resourcesWithPendingTasks.has(resource.id)).map((resource) => ({
     actionType: "continue_resource",
     category: resource.category,
     dueAt: resource.next_action_at,
@@ -146,7 +175,7 @@ export async function getDashboardData() {
     wechat: resource.wechat,
   }));
 
-  const newResourceItems: DashboardWorkItem[] = (newResourcesResult.data ?? []).map((resource) => ({
+  const newResourceItems: DashboardWorkItem[] = (newResourcesResult.data ?? []).filter((resource) => !resourcesWithPendingTasks.has(resource.id)).map((resource) => ({
     actionType: "first_resource",
     category: resource.category,
     dueAt: resource.discovered_at,
@@ -207,7 +236,7 @@ export async function getDashboardData() {
       newResourceCount: newResourceItems.length,
       noPlanResourceCount: noPlanResourcesResult.count ?? 0,
       overdueCount: workItems.filter((item) => item.timing === "overdue").length,
-      todayTaskCount: taskItems.filter((item) => item.timing === "today").length,
+      todayTaskCount: taskItems.filter((item) => item.kind === "talent_task" && item.timing === "today").length,
     },
     staleResources,
     staleTalents,

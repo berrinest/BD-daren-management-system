@@ -13,7 +13,7 @@ export const QUICK_WORK_RESULTS = [
 
 export const deferWorkItemSchema = z.object({
   item_id: z.uuid(),
-  item_kind: z.enum(["resource", "talent_task"]),
+  item_kind: z.enum(["resource", "resource_task", "talent_task"]),
 });
 
 export const completeWorkTaskWithResultSchema = z.object({

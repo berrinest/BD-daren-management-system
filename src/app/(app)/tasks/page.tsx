@@ -26,7 +26,7 @@ export default async function TasksPage() {
   const { data: tasks, error } = await supabase
     .from("tasks")
     .select(
-      "id, talent_id, task_type, status, due_at, notes, talents!tasks_talent_owner_fk(nickname)",
+      "id, talent_id, resource_id, task_type, status, due_at, notes, next_action, talents!tasks_talent_owner_fk(nickname, primary_platform, wechat), talent_resources!tasks_resource_owner_fk(nickname, primary_platform, platform_account, wechat)",
     )
     .eq("user_id", userId)
     .order("due_at", { ascending: true });
@@ -77,7 +77,8 @@ export default async function TasksPage() {
                       <table className="w-full min-w-[760px] text-left text-sm">
                         <thead className="bg-[#f8faf8] text-xs text-[#668074]">
                           <tr>
-                            <th className="px-5 py-3">达人昵称</th>
+                            <th className="px-5 py-3">任务对象</th>
+                            <th className="px-4 py-3">平台 / 联系方式</th>
                             <th className="px-4 py-3">任务类型</th>
                             <th className="px-4 py-3">状态</th>
                             <th className="px-4 py-3">到期时间</th>
@@ -86,15 +87,26 @@ export default async function TasksPage() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-[#edf0ee]">
-                          {statusTasks.map((task) => (
-                            <tr key={task.id}>
+                          {statusTasks.map((task) => {
+                            const isTalentTask = Boolean(task.talent_id && task.talents);
+                            const target = isTalentTask ? task.talents : task.talent_resources;
+                            const href = isTalentTask ? `/talents/${task.talent_id}` : `/resources/${task.resource_id}`;
+                            const contact = isTalentTask
+                              ? task.talents?.wechat
+                              : task.talent_resources?.wechat || task.talent_resources?.platform_account;
+                            return <tr key={task.id}>
                               <td className="px-5 py-4 font-medium text-[#35443e]">
                                 <Link
                                   className="hover:text-[#31594b] hover:underline"
-                                  href={`/talents/${task.talent_id}`}
+                                  href={href}
                                 >
-                                  {task.talents?.nickname ?? "未知达人"}
+                                  {target?.nickname ?? "未知对象"}
                                 </Link>
+                                <p className="mt-1 text-xs font-normal text-slate-400">{isTalentTask ? "正式达人" : "资源"}</p>
+                              </td>
+                              <td className="px-4 py-4 text-slate-600">
+                                <p>{target?.primary_platform ?? "—"}</p>
+                                <p className="mt-1 text-xs text-slate-400">{contact || "未填写联系方式"}</p>
                               </td>
                               <td className="px-4 py-4 text-slate-600">
                                 {getTaskTypeLabel(task.task_type)}
@@ -106,10 +118,10 @@ export default async function TasksPage() {
                                 {formatDateTime(task.due_at)}
                               </td>
                               <td className="max-w-64 truncate px-4 py-4 text-slate-500">
-                                {task.notes || "—"}
+                                {task.notes || task.next_action || "—"}
                               </td>
                               <td className="px-5 py-4 text-right">
-                                {task.status === "pending" ? (
+                                {task.status === "pending" && isTalentTask && task.talent_id ? (
                                   <div className="flex justify-end">
                                     <TaskActions
                                       returnTo="tasks"
@@ -117,12 +129,14 @@ export default async function TasksPage() {
                                       taskId={task.id}
                                     />
                                   </div>
+                                ) : task.status === "pending" ? (
+                                  <Link className="text-xs font-semibold text-[#31594b] hover:underline" href={href}>进入资源详情</Link>
                                 ) : (
                                   <span className="text-xs text-slate-400">已结束</span>
                                 )}
                               </td>
-                            </tr>
-                          ))}
+                            </tr>;
+                          })}
                         </tbody>
                       </table>
                     </div>
