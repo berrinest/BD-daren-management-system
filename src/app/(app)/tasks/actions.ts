@@ -4,12 +4,129 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 
+import {
+  FOLLOW_UP_RESULTS,
+  RESOURCE_CONTACT_RESULTS,
+} from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
 import {
   bulkCreateResourceTasksSchema,
   createTaskSchema,
+  executeBdTaskSchema,
   taskMutationSchema,
 } from "@/lib/validations";
+
+const followUpResultSet = new Set<string>(FOLLOW_UP_RESULTS);
+const resourceResultSet = new Set<string>(RESOURCE_CONTACT_RESULTS);
+
+export async function executeBdTask(formData: FormData) {
+  const input = executeBdTaskSchema.safeParse({
+    task_id: formData.get("task_id"),
+    result: formData.get("result"),
+    notes: formData.get("notes"),
+    next_action: formData.get("next_action"),
+    next_action_at: formData.get("next_action_at"),
+  });
+  if (!input.success) {
+    redirect(`/work?error=${encodeURIComponent(input.error.issues[0]?.message ?? "请检查执行结果")}`);
+  }
+
+  const supabase = await createClient();
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
+  if (!userId) redirect("/login");
+
+  const { data: task, error: taskError } = await supabase
+    .from("tasks")
+    .select("id, talent_id, resource_id")
+    .eq("id", input.data.task_id)
+    .eq("user_id", userId)
+    .eq("status", "pending")
+    .maybeSingle();
+  if (taskError || !task) {
+    redirect("/work?error=该任务已不存在或已处理，请刷新后重试");
+  }
+
+  const occurredAt = new Date().toISOString();
+  let convertedTalentId: string | null = null;
+
+  if (task.talent_id) {
+    if (!followUpResultSet.has(input.data.result)) {
+      redirect("/work?error=该执行结果不适用于达人任务");
+    }
+    const { data, error } = await supabase.rpc("record_follow_up_and_schedule_next", {
+      p_talent_id: task.talent_id,
+      p_task_id: task.id,
+      p_occurred_at: occurredAt,
+      p_method: "wechat",
+      p_result: input.data.result,
+      p_notes: input.data.notes ?? undefined,
+    });
+    if (error || !data?.[0]?.follow_up_record_id || !data[0].completed_task_id) {
+      redirect("/work?error=达人任务执行失败，请检查任务状态后重试");
+    }
+  } else if (task.resource_id) {
+    if (!resourceResultSet.has(input.data.result)) {
+      redirect("/work?error=该执行结果不适用于资源任务");
+    }
+    const { data, error } = await supabase.rpc("record_resource_contact_and_maybe_convert", {
+      p_resource_id: task.resource_id,
+      p_occurred_at: occurredAt,
+      p_method: "wechat",
+      p_result: input.data.result,
+      p_notes: input.data.notes ?? undefined,
+      p_next_action_at: input.data.next_action_at?.toISOString() ?? undefined,
+    });
+    const result = data?.[0];
+    if (error || !result?.resource_contact_record_id) {
+      redirect("/work?error=资源任务执行失败，请检查资源状态后重试");
+    }
+    convertedTalentId = result.converted_talent_id;
+  } else {
+    redirect("/work?error=任务没有有效的执行对象");
+  }
+
+  const completedAt = new Date().toISOString();
+  const expectedStatus = task.talent_id ? "completed" : "pending";
+  const { data: completedTask, error: updateError } = await supabase
+    .from("tasks")
+    .update({
+      cancelled_at: null,
+      completed_at: completedAt,
+      next_action: input.data.next_action ?? null,
+      next_action_at: input.data.next_action_at?.toISOString() ?? null,
+      result_code: input.data.result,
+      result_notes: input.data.notes ?? null,
+      status: "completed",
+    })
+    .eq("id", task.id)
+    .eq("user_id", userId)
+    .eq("status", expectedStatus)
+    .select("id")
+    .maybeSingle();
+  if (updateError || !completedTask) {
+    redirect("/work?error=执行记录已保存，但任务状态更新失败，请刷新后检查");
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/work");
+  revalidatePath("/tasks");
+  if (task.talent_id) {
+    revalidatePath("/talents");
+    revalidatePath(`/talents/${task.talent_id}`);
+  }
+  if (task.resource_id) {
+    revalidatePath("/resources");
+    revalidatePath(`/resources/${task.resource_id}`);
+  }
+  if (convertedTalentId) {
+    revalidatePath("/talents");
+    revalidatePath(`/talents/${convertedTalentId}`);
+  }
+  const notice = new URLSearchParams({ notice: "bd-task-executed" });
+  if (convertedTalentId) notice.set("autoConverted", "1");
+  redirect(`/work?${notice}`);
+}
 
 export async function bulkCreateResourceTasks(formData: FormData) {
   const input = bulkCreateResourceTasksSchema.safeParse({

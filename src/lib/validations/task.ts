@@ -1,6 +1,26 @@
 import { z } from "zod";
 
-import { TASK_TYPES } from "@/lib/constants";
+import {
+  FOLLOW_UP_RESULTS,
+  RESOURCE_CONTACT_RESULTS,
+  TASK_TYPES,
+} from "@/lib/constants";
+
+const optionalTaskExecutionText = (max: number) => z.preprocess(
+  (value) => typeof value === "string" && value.trim() === "" ? null : value,
+  z.string().trim().max(max).nullable().optional(),
+);
+
+const optionalTaskExecutionDateTime = z.preprocess(
+  (value) => value === "" || value === null ? null : value,
+  z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "请选择有效的下一步时间")
+    .transform((value) => new Date(`${value}:00+08:00`))
+    .refine((value) => !Number.isNaN(value.getTime()), "请选择有效的下一步时间")
+    .nullable()
+    .optional(),
+);
 
 export const createTaskSchema = z.object({
   talent_id: z.uuid(),
@@ -37,6 +57,17 @@ export const bulkCreateResourceTasksSchema = z.object({
     .trim()
     .min(1, "请填写下一步动作")
     .max(500, "下一步动作不能超过 500 个字符"),
+});
+
+export const executeBdTaskSchema = z.object({
+  task_id: z.uuid(),
+  result: z.union([
+    z.enum(FOLLOW_UP_RESULTS),
+    z.enum(RESOURCE_CONTACT_RESULTS),
+  ]),
+  notes: optionalTaskExecutionText(2000),
+  next_action: optionalTaskExecutionText(500),
+  next_action_at: optionalTaskExecutionDateTime,
 });
 
 export const taskMutationSchema = z.object({
