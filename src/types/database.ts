@@ -326,11 +326,19 @@ export type Database = {
           cancelled_at: string | null
           completed_at: string | null
           created_at: string
+          creator_id: string
           due_at: string
+          execution_source: string
           id: string
+          next_action: string | null
+          next_action_at: string | null
           notes: string | null
+          resource_id: string | null
+          result_code: string | null
+          result_notes: string | null
+          started_at: string | null
           status: string
-          talent_id: string
+          talent_id: string | null
           task_type: string
           updated_at: string
           user_id: string
@@ -339,11 +347,19 @@ export type Database = {
           cancelled_at?: string | null
           completed_at?: string | null
           created_at?: string
+          creator_id?: string
           due_at: string
+          execution_source?: string
           id?: string
+          next_action?: string | null
+          next_action_at?: string | null
           notes?: string | null
+          resource_id?: string | null
+          result_code?: string | null
+          result_notes?: string | null
+          started_at?: string | null
           status?: string
-          talent_id: string
+          talent_id?: string | null
           task_type?: string
           updated_at?: string
           user_id: string
@@ -352,16 +368,38 @@ export type Database = {
           cancelled_at?: string | null
           completed_at?: string | null
           created_at?: string
+          creator_id?: string
           due_at?: string
+          execution_source?: string
           id?: string
+          next_action?: string | null
+          next_action_at?: string | null
           notes?: string | null
+          resource_id?: string | null
+          result_code?: string | null
+          result_notes?: string | null
+          started_at?: string | null
           status?: string
-          talent_id?: string
+          talent_id?: string | null
           task_type?: string
           updated_at?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "tasks_creator_id_fkey"
+            columns: ["creator_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_resource_owner_fk"
+            columns: ["resource_id", "user_id"]
+            isOneToOne: false
+            referencedRelation: "talent_resources"
+            referencedColumns: ["id", "user_id"]
+          },
           {
             foreignKeyName: "tasks_talent_owner_fk"
             columns: ["talent_id", "user_id"]
