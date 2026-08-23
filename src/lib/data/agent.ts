@@ -35,6 +35,41 @@ export type AgentTaskClaimResult =
   | { claim: AgentTaskClaimDto; status: "ok" }
   | { status: "conflict" | "not_found" | "unauthenticated" };
 
+export const AGENT_RESOURCE_RESULT_CODES = [
+  "friend_request_sent",
+  "friend_request_accepted",
+  "no_response",
+  "rejected",
+] as const;
+
+export const AGENT_TALENT_RESULT_CODES = [
+  "replied",
+  "interested",
+  "quote_sent",
+  "cooperation_confirmed",
+  "rejected",
+] as const;
+
+export type AgentTaskResultCode =
+  | (typeof AGENT_RESOURCE_RESULT_CODES)[number]
+  | (typeof AGENT_TALENT_RESULT_CODES)[number];
+
+export type AgentTaskResultInput = {
+  next_action: string | null;
+  next_action_at: string | null;
+  occurred_at: string;
+  result_code: AgentTaskResultCode;
+  result_notes: string | null;
+};
+
+export type AgentTaskResultSubmission =
+  | {
+      result: { result_code: AgentTaskResultCode };
+      status: "ok";
+      task: { status: "completed"; task_id: string };
+    }
+  | { status: "conflict" | "invalid_result" | "not_found" | "unauthenticated" };
+
 type AgentTaskClaimUpdate = {
   agent_id: string;
   execution_source: "agent";
@@ -87,6 +122,67 @@ export async function claimAgentTask(
       task_id: claimedTask.id,
     },
     status: "ok",
+  };
+}
+
+export async function submitAgentTaskResult(
+  taskId: string,
+  input: AgentTaskResultInput,
+): Promise<AgentTaskResultSubmission> {
+  const supabase = await createClient();
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
+  if (!userId) return { status: "unauthenticated" };
+
+  const { data: task, error: taskError } = await supabase
+    .from("tasks")
+    .select("id, status, talent_id, resource_id")
+    .eq("id", taskId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (taskError) throw new Error("Agent task could not be checked");
+  if (!task) return { status: "not_found" };
+  if (task.status !== "in_progress") return { status: "conflict" };
+
+  const allowedResults = task.talent_id
+    ? new Set<string>(AGENT_TALENT_RESULT_CODES)
+    : task.resource_id
+      ? new Set<string>(AGENT_RESOURCE_RESULT_CODES)
+      : null;
+  if (!allowedResults?.has(input.result_code)) {
+    return { status: "invalid_result" };
+  }
+
+  const rpcResult = await supabase.rpc(
+    "complete_agent_task_result" as never,
+    {
+      p_next_action: input.next_action,
+      p_next_action_at: input.next_action_at,
+      p_occurred_at: input.occurred_at,
+      p_result_code: input.result_code,
+      p_result_notes: input.result_notes,
+      p_task_id: taskId,
+    } as never,
+  ) as unknown as {
+    data: Array<{ result_code: string; status: string; task_id: string }> | null;
+    error: { code?: string } | null;
+  };
+
+  if (rpcResult.error) {
+    if (rpcResult.error.code === "P0002") return { status: "conflict" };
+    if (rpcResult.error.code === "22023") return { status: "invalid_result" };
+    throw new Error("Agent task result could not be applied");
+  }
+
+  const completedTask = rpcResult.data?.[0];
+  if (!completedTask || completedTask.status !== "completed") {
+    throw new Error("Agent task result was not completed");
+  }
+
+  return {
+    result: { result_code: input.result_code },
+    status: "ok",
+    task: { status: "completed", task_id: completedTask.task_id },
   };
 }
 
