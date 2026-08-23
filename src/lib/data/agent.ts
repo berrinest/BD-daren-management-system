@@ -24,6 +24,72 @@ export type AgentTasksResult =
   | { status: "ok"; tasks: AgentTaskDto[] }
   | { status: "unauthenticated" };
 
+export type AgentTaskClaimDto = {
+  agent_id: string;
+  started_at: string;
+  status: "in_progress";
+  task_id: string;
+};
+
+export type AgentTaskClaimResult =
+  | { claim: AgentTaskClaimDto; status: "ok" }
+  | { status: "conflict" | "not_found" | "unauthenticated" };
+
+type AgentTaskClaimUpdate = {
+  agent_id: string;
+  execution_source: "agent";
+  started_at: string;
+  status: "in_progress";
+};
+
+export async function claimAgentTask(
+  taskId: string,
+  agentId: string,
+): Promise<AgentTaskClaimResult> {
+  const supabase = await createClient();
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
+  if (!userId) return { status: "unauthenticated" };
+
+  const { data: existingTask, error: lookupError } = await supabase
+    .from("tasks")
+    .select("id, status")
+    .eq("id", taskId)
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (lookupError) throw new Error("Agent task could not be checked");
+  if (!existingTask) return { status: "not_found" };
+  if (existingTask.status !== "pending") return { status: "conflict" };
+
+  const startedAt = new Date().toISOString();
+  const update: AgentTaskClaimUpdate = {
+    agent_id: agentId,
+    execution_source: "agent",
+    started_at: startedAt,
+    status: "in_progress",
+  };
+  const { data: claimedTask, error: claimError } = await supabase
+    .from("tasks")
+    .update(update as never)
+    .eq("id", taskId)
+    .eq("user_id", userId)
+    .eq("status", "pending")
+    .select("id, status, started_at")
+    .maybeSingle();
+  if (claimError) throw new Error("Agent task could not be claimed");
+  if (!claimedTask) return { status: "conflict" };
+
+  return {
+    claim: {
+      agent_id: agentId,
+      started_at: claimedTask.started_at ?? startedAt,
+      status: "in_progress",
+      task_id: claimedTask.id,
+    },
+    status: "ok",
+  };
+}
+
 export async function getTodayAgentTasks(now = new Date()): Promise<AgentTasksResult> {
   const supabase = await createClient();
   const { data: claimsData } = await supabase.auth.getClaims();

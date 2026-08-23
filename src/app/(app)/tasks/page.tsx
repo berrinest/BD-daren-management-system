@@ -12,6 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 
 const sectionStyles = {
   pending: "border-amber-200 bg-amber-50 text-amber-800",
+  in_progress: "border-sky-200 bg-sky-50 text-sky-800",
   completed: "border-emerald-200 bg-emerald-50 text-emerald-800",
   cancelled: "border-slate-200 bg-slate-50 text-slate-600",
 } as const;
@@ -131,6 +132,10 @@ export default async function TasksPage() {
                                   </div>
                                 ) : task.status === "pending" ? (
                                   <Link className="text-xs font-semibold text-[#31594b] hover:underline" href={href}>进入资源详情</Link>
+                                ) : status === "in_progress" ? (
+                                  <span className="text-xs font-semibold text-sky-700">
+                                    Agent 执行中
+                                  </span>
                                 ) : (
                                   <span className="text-xs text-slate-400">已结束</span>
                                 )}

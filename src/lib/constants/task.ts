@@ -12,13 +12,19 @@ export const TASK_TYPE_LABELS: Record<(typeof TASK_TYPES)[number], string> = {
   other: "其他任务",
 };
 
-export const TASK_STATUSES = ["pending", "completed", "cancelled"] as const;
+export const TASK_STATUSES = [
+  "pending",
+  "in_progress",
+  "completed",
+  "cancelled",
+] as const;
 
 export const TASK_STATUS_LABELS: Record<
   (typeof TASK_STATUSES)[number],
   string
 > = {
   pending: "待处理",
+  in_progress: "执行中",
   completed: "已完成",
   cancelled: "已取消",
 };
