@@ -20,6 +20,7 @@ const createElement = (value = "") => ({
 });
 const elements = new Map([
   ["#capture-form", { ...createElement(), addEventListener(type, listener) { listeners[type] = listener; } }],
+  ["#agent-panel", { ...createElement(), addEventListener() {} }],
   ["#category", createElement("美食")],
   ["#description", createElement()],
   ["#follower-count", createElement()],
@@ -36,6 +37,7 @@ const elements = new Map([
 let requestedEndpoint = "";
 let requestedPayload = null;
 const chrome = {
+  sidePanel: { async open() {} },
   storage: {
     local: {
       async get() { return {}; },
@@ -78,6 +80,7 @@ const context = {
   setTimeout() { return 1; },
   clearTimeout() {},
   URL,
+  window: { close() {} },
 };
 
 vm.runInNewContext(fs.readFileSync(new URL("../popup/popup.js", import.meta.url), "utf8"), context);

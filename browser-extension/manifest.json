@@ -1,11 +1,16 @@
 {
   "manifest_version": 3,
   "name": "BD 达人资源采集",
-  "description": "将当前公开达人主页资料发送到 BD 达人管理系统资源池。",
-  "version": "0.1.3",
+  "description": "采集公开达人资料，并通过已登录的 BD 系统处理今日任务。",
+  "version": "0.2.0",
   "permissions": [
-    "activeTab"
+    "activeTab",
+    "sidePanel",
+    "storage"
   ],
+  "background": {
+    "service_worker": "background/service-worker.js"
+  },
   "host_permissions": [
     "https://bd-daren-management-system.vercel.app/*",
     "http://localhost/*",
@@ -37,5 +42,8 @@
   "action": {
     "default_title": "采集达人资源",
     "default_popup": "popup/index.html"
+  },
+  "side_panel": {
+    "default_path": "sidepanel/index.html"
   }
 }

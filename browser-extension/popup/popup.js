@@ -15,6 +15,7 @@ const fields = {
 const form = document.querySelector("#capture-form");
 const refreshButton = document.querySelector("#refresh");
 const sendButton = document.querySelector("#send");
+const agentPanelButton = document.querySelector("#agent-panel");
 
 function setStatus(message, error = false) {
   fields.status.textContent = message;
@@ -117,6 +118,15 @@ form.addEventListener("submit", async (event) => {
 });
 
 refreshButton.addEventListener("click", collectCurrentPage);
+agentPanelButton.addEventListener("click", async () => {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (!tab?.windowId) {
+    setStatus("无法打开 Agent 任务面板", true);
+    return;
+  }
+  await chrome.sidePanel.open({ windowId: tab.windowId });
+  window.close();
+});
 async function initialize() {
   await collectCurrentPage();
 }

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 
 import { AppHeader } from "@/components/layout/app-header";
 import { AppSidebar } from "@/components/layout/app-sidebar";
+import { BrowserAgentBridge } from "@/components/agent/browser-agent-bridge";
 import { BrowserCaptureBridge } from "@/components/resources/browser-capture-bridge";
 import { createClient } from "@/lib/supabase/server";
 
@@ -23,6 +24,7 @@ export default async function ProtectedLayout({
       <AppSidebar />
       <div className="min-h-screen">
         <AppHeader email={data.claims.email as string | undefined} />
+        <BrowserAgentBridge />
         <BrowserCaptureBridge />
         {children}
       </div>

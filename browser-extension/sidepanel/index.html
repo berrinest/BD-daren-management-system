@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>BD Agent 任务</title>
+    <link rel="stylesheet" href="sidepanel.css" />
+  </head>
+  <body>
+    <main>
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">BD AGENT</p>
+          <h1>今日执行任务</h1>
+          <p id="agent-meta" class="meta"></p>
+        </div>
+        <button id="refresh" class="secondary" type="button">刷新</button>
+      </header>
+
+      <section id="connection" class="connection pending">正在连接 BD 系统…</section>
+      <p id="notice" class="notice" hidden></p>
+      <section id="tasks" class="task-list" aria-live="polite"></section>
+      <section id="empty" class="empty" hidden>今天没有待执行任务。</section>
+    </main>
+    <script src="sidepanel.js"></script>
+  </body>
+</html>
