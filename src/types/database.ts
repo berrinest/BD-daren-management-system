@@ -424,6 +424,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      complete_agent_task_result: {
+        Args: {
+          p_next_action?: string
+          p_next_action_at?: string
+          p_occurred_at?: string
+          p_result_code: string
+          p_result_notes?: string
+          p_task_id: string
+        }
+        Returns: {
+          result_code: string
+          status: string
+          task_id: string
+        }[]
+      }
       complete_task_and_record_follow_up: {
         Args: { p_talent_id: string; p_task_id: string }
         Returns: {
