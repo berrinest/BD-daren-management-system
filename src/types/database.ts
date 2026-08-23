@@ -323,6 +323,7 @@ export type Database = {
       }
       tasks: {
         Row: {
+          agent_id: string | null
           cancelled_at: string | null
           completed_at: string | null
           created_at: string
@@ -344,6 +345,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agent_id?: string | null
           cancelled_at?: string | null
           completed_at?: string | null
           created_at?: string
@@ -365,6 +367,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agent_id?: string | null
           cancelled_at?: string | null
           completed_at?: string | null
           created_at?: string
