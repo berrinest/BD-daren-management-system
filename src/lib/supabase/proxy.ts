@@ -5,6 +5,7 @@ import { getSupabasePublicEnv } from "@/lib/env";
 import type { Database } from "@/types/database";
 
 const PUBLIC_ROUTES = new Set(["/login"]);
+const SELF_AUTHENTICATING_API_ROUTES = new Set(["/api/agent/tasks"]);
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -33,7 +34,8 @@ export async function updateSession(request: NextRequest) {
 
   const { data } = await supabase.auth.getClaims();
   const isAuthenticated = Boolean(data?.claims?.sub);
-  const isPublicRoute = PUBLIC_ROUTES.has(request.nextUrl.pathname);
+  const isPublicRoute = PUBLIC_ROUTES.has(request.nextUrl.pathname)
+    || SELF_AUTHENTICATING_API_ROUTES.has(request.nextUrl.pathname);
 
   if (!isAuthenticated && !isPublicRoute) {
     const url = request.nextUrl.clone();
