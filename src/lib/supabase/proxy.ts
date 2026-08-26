@@ -6,6 +6,7 @@ import type { Database } from "@/types/database";
 
 const PUBLIC_ROUTES = new Set(["/login"]);
 const SELF_AUTHENTICATING_API_PREFIX = "/api/agent";
+const DEVELOPMENT_SESSION_DEBUG_ROUTE = "/api/debug/session";
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -35,6 +36,7 @@ export async function updateSession(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const isAuthenticated = Boolean(data?.claims?.sub);
   const isPublicRoute = PUBLIC_ROUTES.has(request.nextUrl.pathname)
+    || request.nextUrl.pathname === DEVELOPMENT_SESSION_DEBUG_ROUTE
     || request.nextUrl.pathname === SELF_AUTHENTICATING_API_PREFIX
     || request.nextUrl.pathname.startsWith(`${SELF_AUTHENTICATING_API_PREFIX}/`);
 
