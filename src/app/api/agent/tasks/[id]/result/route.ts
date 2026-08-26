@@ -4,6 +4,7 @@ import { z } from "zod";
 import {
   AGENT_RESOURCE_RESULT_CODES,
   AGENT_TALENT_RESULT_CODES,
+  AGENT_INTERNAL_RESULT_CODES,
   submitAgentTaskResult,
 } from "@/lib/data/agent";
 import { authenticateAgentApiRequest } from "@/lib/supabase/agent-api";
@@ -13,6 +14,7 @@ export const dynamic = "force-dynamic";
 const resultCodes = [
   ...AGENT_RESOURCE_RESULT_CODES,
   ...AGENT_TALENT_RESULT_CODES,
+  ...AGENT_INTERNAL_RESULT_CODES,
 ] as const;
 const optionalText = (max: number) => z.preprocess(
   (value) => typeof value === "string" && value.trim() === "" ? null : value,

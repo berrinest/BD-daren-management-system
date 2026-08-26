@@ -8,6 +8,7 @@ export const FOLLOW_UP_TASK_TYPES = [
 export const TASK_TYPES = [
   ...FOLLOW_UP_TASK_TYPES,
   "wechat_add_friend",
+  "desktop_test",
 ] as const;
 
 export const TASK_TYPE_LABELS: Record<(typeof TASK_TYPES)[number], string> = {
@@ -15,6 +16,7 @@ export const TASK_TYPE_LABELS: Record<(typeof TASK_TYPES)[number], string> = {
   quote_follow_up: "报价跟进",
   cooperation: "合作推进",
   wechat_add_friend: "微信添加好友",
+  desktop_test: "桌面安全测试",
   other: "其他任务",
 };
 

@@ -4,7 +4,10 @@ import { getActiveAgentInstance } from "@/lib/data/agent-instances";
 import { getShanghaiDayRange } from "@/lib/formatters/date";
 import type { Database } from "@/types/database";
 
-export const AGENT_SUPPORTED_TASK_TYPES = ["wechat_add_friend"] as const;
+export const AGENT_SUPPORTED_TASK_TYPES = [
+  "wechat_add_friend",
+  "desktop_test",
+] as const;
 export type AgentSupportedTaskType = (typeof AGENT_SUPPORTED_TASK_TYPES)[number];
 
 export type AgentTaskTargetDto = {
@@ -66,9 +69,12 @@ export const AGENT_TALENT_RESULT_CODES = [
   "rejected",
 ] as const;
 
+export const AGENT_INTERNAL_RESULT_CODES = ["desktop_test_completed"] as const;
+
 export type AgentTaskResultCode =
   | (typeof AGENT_RESOURCE_RESULT_CODES)[number]
-  | (typeof AGENT_TALENT_RESULT_CODES)[number];
+  | (typeof AGENT_TALENT_RESULT_CODES)[number]
+  | (typeof AGENT_INTERNAL_RESULT_CODES)[number];
 
 export type AgentTaskResultInput = {
   next_action: string | null;
@@ -161,7 +167,7 @@ export async function submitAgentTaskResult(
 ): Promise<AgentTaskResultSubmission> {
   const { data: task, error: taskError } = await supabase
     .from("tasks")
-    .select("id, status, talent_id, resource_id, agent_id, agent_execution_status" as never)
+    .select("id, status, task_type, talent_id, resource_id, agent_id, agent_execution_status" as never)
     .eq("id", taskId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -174,6 +180,7 @@ export async function submitAgentTaskResult(
     resource_id: string | null;
     status: string;
     talent_id: string | null;
+    task_type: string;
   };
   if (claimedTask.status !== "in_progress") return { status: "conflict" };
   if (
@@ -186,11 +193,13 @@ export async function submitAgentTaskResult(
     return { status: "conflict" };
   }
 
-  const allowedResults = claimedTask.talent_id
-    ? new Set<string>(AGENT_TALENT_RESULT_CODES)
-    : claimedTask.resource_id
-      ? new Set<string>(AGENT_RESOURCE_RESULT_CODES)
-      : null;
+  const allowedResults = claimedTask.task_type === "desktop_test"
+    ? new Set<string>(AGENT_INTERNAL_RESULT_CODES)
+    : claimedTask.talent_id
+      ? new Set<string>(AGENT_TALENT_RESULT_CODES)
+      : claimedTask.resource_id
+        ? new Set<string>(AGENT_RESOURCE_RESULT_CODES)
+        : null;
   if (!allowedResults?.has(input.result_code)) {
     return { status: "invalid_result" };
   }

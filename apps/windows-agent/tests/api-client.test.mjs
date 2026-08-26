@@ -18,7 +18,7 @@ test("Agent client registers, heartbeats, polls, and claims with bearer auth", a
       url: request.url,
     });
     response.writeHead(200, { "Content-Type": "application/json" });
-    if (request.url === "/api/agent/tasks?scope=today&task_type=wechat_add_friend") {
+    if (request.url === "/api/agent/tasks?scope=today") {
       response.end(JSON.stringify({
         tasks: [{
           created_at: "2026-08-26T09:00:00.000Z",
@@ -54,7 +54,7 @@ test("Agent client registers, heartbeats, polls, and claims with bearer auth", a
       }));
     } else if (request.url?.endsWith("/result")) {
       response.end(JSON.stringify({
-        result: { result_code: "friend_request_sent" },
+        result: { result_code: JSON.parse(body).result_code },
         success: true,
         task: {
           status: "completed",
@@ -96,15 +96,20 @@ test("Agent client registers, heartbeats, polls, and claims with bearer auth", a
     "00000000-0000-4000-8000-000000000003",
     "00000000-0000-4000-8000-000000000001",
   );
+  const desktopResult = await client.submitDesktopTestResult(
+    "00000000-0000-4000-8000-000000000003",
+    "00000000-0000-4000-8000-000000000001",
+    "C:\\screenshots\\desktop-test.png",
+  );
   server.close();
 
-  assert.equal(requests.length, 6);
+  assert.equal(requests.length, 7);
   assert.equal(requests[0].authorization, "Bearer test-token");
   assert.equal(requests[0].url, "/api/agent/instances/register");
   assert.equal(requests[0].body.agent_type, "windows");
   assert.equal(requests[1].url, "/api/agent/instances/00000000-0000-4000-8000-000000000001/heartbeat");
   assert.equal(requests[1].body.status, "active");
-  assert.equal(requests[2].url, "/api/agent/tasks?scope=today&task_type=wechat_add_friend");
+  assert.equal(requests[2].url, "/api/agent/tasks?scope=today");
   assert.equal(requests[2].authorization, "Bearer test-token");
   assert.equal(tasks[0].task_type, "wechat_add_friend");
   assert.equal(requests[3].url, "/api/agent/tasks/00000000-0000-4000-8000-000000000003/claim");
@@ -118,4 +123,7 @@ test("Agent client registers, heartbeats, polls, and claims with bearer auth", a
   assert.equal(requests[5].authorization, "Bearer test-token");
   assert.equal(requests[5].body.result_code, "friend_request_sent");
   assert.equal(result.task.status, "completed");
+  assert.equal(requests[6].body.result_code, "desktop_test_completed");
+  assert.match(requests[6].body.result_notes, /desktop-test\.png/);
+  assert.equal(desktopResult.result.result_code, "desktop_test_completed");
 });

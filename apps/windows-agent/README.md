@@ -1,10 +1,11 @@
 # Windows Agent MVP
 
-Phase 8.3 registers this Windows installation, sends a heartbeat every 30
+Phase 8.4-A registers this Windows installation, sends a heartbeat every 30
 seconds, and polls supported BD tasks every 10 seconds. The user must confirm
 before the Agent claims a task. It does not control WeChat or any desktop
-application. After claim, a second explicit confirmation runs only an API
-communication simulation: `claimed -> running -> result -> completed`.
+application for normal BD tasks. The internal `desktop_test` task is the only
+task allowed to invoke the desktop executor: it opens an Agent-owned Notepad,
+types fixed test text, captures the primary screen, and closes that process.
 
 Required environment variables:
 
@@ -28,4 +29,15 @@ The access token is not written to this file.
 When a `wechat_add_friend` task is found, the CLI displays the public task DTO
 and asks whether this installation should claim it. Declining the second
 confirmation records `failed`; confirming it records `running` and submits a
-clearly labelled simulated result. Phase 8.3 performs no platform action.
+clearly labelled simulated result. Non-test tasks perform no platform action.
+
+Desktop execution logs are written as JSON Lines to
+`%LOCALAPPDATA%\BDTalentAgent\logs\executions.jsonl`. Screenshots are stored in
+`%LOCALAPPDATA%\BDTalentAgent\screenshots`. No WeChat or platform selector is
+present in the executor.
+
+After building, an explicit interactive smoke test is available with
+`pnpm --filter @bd/windows-agent test:desktop`. It is never run by the normal
+test or build scripts. Run it from a normal PowerShell window in the signed-in
+Windows desktop session; service, CI, and sandbox sessions cannot activate a
+desktop window or capture an interactive screen.

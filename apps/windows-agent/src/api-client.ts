@@ -21,7 +21,7 @@ export type AgentTask = {
     wechat: string | null;
   };
   task_id: string;
-  task_type: "wechat_add_friend";
+  task_type: "desktop_test" | "wechat_add_friend";
 };
 
 export type AgentTaskClaim = {
@@ -89,7 +89,7 @@ export class BdAgentApiClient {
 
   async getTasks() {
     const payload = await this.request<{ tasks: AgentTask[] }>(
-      "/api/agent/tasks?scope=today&task_type=wechat_add_friend",
+      "/api/agent/tasks?scope=today",
     );
     return payload.tasks;
   }
@@ -127,6 +127,22 @@ export class BdAgentApiClient {
         occurred_at: new Date().toISOString(),
         result_code: "friend_request_sent",
         result_notes: "Phase 8.3 人工确认后的模拟执行；未进行微信自动化操作",
+      }),
+      headers: { "X-Agent-Instance-Id": agentId },
+      method: "POST",
+    });
+  }
+
+  submitDesktopTestResult(taskId: string, agentId: string, screenshotPath: string) {
+    return this.request<{
+      result: { result_code: "desktop_test_completed" };
+      success: true;
+      task: { status: "completed"; task_id: string };
+    }>(`/api/agent/tasks/${encodeURIComponent(taskId)}/result`, {
+      body: JSON.stringify({
+        occurred_at: new Date().toISOString(),
+        result_code: "desktop_test_completed",
+        result_notes: `桌面安全测试完成；截图：${screenshotPath}`,
       }),
       headers: { "X-Agent-Instance-Id": agentId },
       method: "POST",

@@ -16,14 +16,14 @@ export type RuntimeConfig = {
   version: string;
 };
 
-function getConfigDirectory() {
+export function getAgentDataDirectory() {
   const localAppData = process.env.LOCALAPPDATA;
   if (!localAppData) throw new Error("LOCALAPPDATA is unavailable on this Windows account");
   return join(localAppData, "BDTalentAgent");
 }
 
 export async function loadOrCreateLocalConfig(): Promise<LocalAgentConfig> {
-  const directory = getConfigDirectory();
+  const directory = getAgentDataDirectory();
   const path = join(directory, "agent.json");
   try {
     const parsed = JSON.parse(await readFile(path, "utf8")) as Partial<LocalAgentConfig>;
