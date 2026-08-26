@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.15"
+    PostgrestVersion: "14.17"
   }
   graphql_public: {
     Tables: {
@@ -39,6 +39,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_instances: {
+        Row: {
+          agent_type: string
+          created_at: string
+          device_name: string
+          id: string
+          installation_id: string
+          last_seen_at: string
+          status: string
+          updated_at: string
+          user_id: string
+          version: string
+        }
+        Insert: {
+          agent_type?: string
+          created_at?: string
+          device_name: string
+          id?: string
+          installation_id: string
+          last_seen_at?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+          version: string
+        }
+        Update: {
+          agent_type?: string
+          created_at?: string
+          device_name?: string
+          id?: string
+          installation_id?: string
+          last_seen_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+          version?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_instances_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       follow_up_records: {
         Row: {
           created_at: string
@@ -323,7 +370,10 @@ export type Database = {
       }
       tasks: {
         Row: {
+          agent_current_action: string | null
+          agent_execution_status: string | null
           agent_id: string | null
+          agent_last_error: string | null
           cancelled_at: string | null
           completed_at: string | null
           created_at: string
@@ -345,7 +395,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          agent_current_action?: string | null
+          agent_execution_status?: string | null
           agent_id?: string | null
+          agent_last_error?: string | null
           cancelled_at?: string | null
           completed_at?: string | null
           created_at?: string
@@ -367,7 +420,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          agent_current_action?: string | null
+          agent_execution_status?: string | null
           agent_id?: string | null
+          agent_last_error?: string | null
           cancelled_at?: string | null
           completed_at?: string | null
           created_at?: string
