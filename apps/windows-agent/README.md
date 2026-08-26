@@ -1,6 +1,6 @@
 # Windows Agent MVP
 
-Phase 8.4-A registers this Windows installation, sends a heartbeat every 30
+Phase 8.4-B registers this Windows installation, sends a heartbeat every 30
 seconds, and polls supported BD tasks every 10 seconds. The user must confirm
 before the Agent claims a task. It does not control WeChat or any desktop
 application for normal BD tasks. The internal `desktop_test` task is the only
@@ -12,6 +12,8 @@ Required environment variables:
 - `BD_WEB_URL`: deployed BD Web origin, for example `https://example.vercel.app`
 - `BD_AGENT_ACCESS_TOKEN`: current user's Supabase access token
 - `BD_AGENT_DEVICE_NAME`: optional display name; defaults to the Windows hostname
+- `BD_WECHAT_PATH`: optional absolute WeChat executable path when the public
+  `weixin://` protocol is unavailable
 
 Build and start from the repository root:
 
@@ -27,9 +29,12 @@ installation identifier is stored in `%LOCALAPPDATA%\BDTalentAgent\agent.json`.
 The access token is not written to this file.
 
 When a `wechat_add_friend` task is found, the CLI displays the public task DTO
-and asks whether this installation should claim it. Declining the second
-confirmation records `failed`; confirming it records `running` and submits a
-clearly labelled simulated result. Non-test tasks perform no platform action.
+and asks whether this installation should claim it. After confirmation it may
+start WeChat and copy the task's WeChat ID to the clipboard. Searching,
+opening the correct profile, reviewing the request, and sending it are explicit
+human steps. The result is submitted only after the user confirms that they
+manually sent the request. The Agent has no selector, coordinate, keyboard
+simulation, Hook, injection, or unattended sending capability.
 
 Desktop execution logs are written as JSON Lines to
 `%LOCALAPPDATA%\BDTalentAgent\logs\executions.jsonl`. Screenshots are stored in

@@ -1,7 +1,16 @@
 import { createInterface } from "node:readline/promises";
 
 import type { AgentTask, BdAgentApiClient } from "./api-client.js";
-import { DesktopTestExecutor, type DesktopExecutor } from "./executor/index.js";
+import {
+  DesktopTestExecutor,
+  WechatAssistExecutor,
+  type DesktopExecutor,
+  type WechatExecutor,
+} from "./executor/index.js";
+
+function confirmed(answer: string) {
+  return /^y(es)?$/i.test(answer.trim());
+}
 
 function wait(delayMs: number, signal: AbortSignal) {
   return new Promise<void>((resolve) => {
@@ -28,11 +37,13 @@ export async function runTaskPolling(options: {
   agentId: string;
   client: BdAgentApiClient;
   desktopExecutor?: DesktopExecutor;
+  wechatExecutor?: WechatExecutor;
   intervalMs: number;
   signal: AbortSignal;
 }) {
   const reviewed = new Set<string>();
   const desktopExecutor = options.desktopExecutor ?? new DesktopTestExecutor();
+  const wechatExecutor = options.wechatExecutor ?? new WechatAssistExecutor();
   const input = createInterface({ input: process.stdin, output: process.stdout });
   options.signal.addEventListener("abort", () => input.close(), { once: true });
 
@@ -47,14 +58,14 @@ export async function runTaskPolling(options: {
           reviewed.add(task.task_id);
           printTask(task);
           const answer = await input.question("是否由本机 Agent 领取？[y/N] ");
-          if (/^y(es)?$/i.test(answer.trim())) {
+          if (confirmed(answer)) {
             const claim = await options.client.claimTask(task.task_id, options.agentId);
             console.log(`任务已领取：${claim.task_id}，执行状态 ${claim.execution_status}`);
             const isDesktopTest = task.task_type === "desktop_test";
             const start = await input.question(isDesktopTest
               ? "确认进入 running 并执行安全桌面测试（记事本、固定文本、截图）？[y/N] "
-              : "确认进入 running 并执行通信模拟？不会操作微信。[y/N] ");
-            if (/^y(es)?$/i.test(start.trim())) {
+              : "确认进入 running 并准备微信辅助流程（仅启动微信和复制微信号）？[y/N] ");
+            if (confirmed(start)) {
               const running = await options.client.updateTaskState(
                 task.task_id,
                 options.agentId,
@@ -75,13 +86,41 @@ export async function runTaskPolling(options: {
                     execution.screenshotPath,
                   );
                   console.log(`桌面测试结果已回传：任务状态 ${result.task.status}`);
-                } else {
-                  console.log("正在模拟执行通信（不操作微信、鼠标或键盘）…");
-                  const result = await options.client.submitSimulatedResult(
+                } else if (task.task_type === "wechat_add_friend") {
+                  if (!task.target.wechat) {
+                    throw new Error("该任务没有微信号，无法进入微信辅助流程");
+                  }
+                  console.log("正在启动微信并将微信号复制到剪贴板；Agent 不会搜索、点击或发送…");
+                  await wechatExecutor.prepare({
+                    signal: options.signal,
+                    taskId: task.task_id,
+                    wechat: task.target.wechat,
+                  });
+                  console.log(`微信号已复制：${task.target.wechat}`);
+
+                  const searched = await input.question("请在微信中粘贴并搜索。已完成搜索？[y/N] ");
+                  await wechatExecutor.recordUserStep({
+                    action: "search_contact",
+                    confirmed: confirmed(searched),
+                    taskId: task.task_id,
+                  });
+                  const opened = await input.question("已人工打开正确的联系人资料页？[y/N] ");
+                  await wechatExecutor.recordUserStep({
+                    action: "open_profile",
+                    confirmed: confirmed(opened),
+                    taskId: task.task_id,
+                  });
+                  const sent = await input.question("请人工核对并发送好友申请。确认已经手动发送？[y/N] ");
+                  await wechatExecutor.recordUserStep({
+                    action: "wait_user_confirm",
+                    confirmed: confirmed(sent),
+                    taskId: task.task_id,
+                  });
+                  const result = await options.client.submitWechatAssistedResult(
                     task.task_id,
                     options.agentId,
                   );
-                  console.log(`模拟结果已回传：任务状态 ${result.task.status}`);
+                  console.log(`人工确认结果已回传：任务状态 ${result.task.status}`);
                 }
               } catch (error) {
                 await options.client.updateTaskState(task.task_id, options.agentId, "failed");

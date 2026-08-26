@@ -1,5 +1,9 @@
 import { spawn } from "node:child_process";
 
+export function quotePowerShell(value: string) {
+  return `'${value.replaceAll("'", "''")}'`;
+}
+
 export async function runPowerShell(script: string, signal: AbortSignal) {
   const encoded = Buffer.from(script, "utf16le").toString("base64");
   await new Promise<void>((resolve, reject) => {

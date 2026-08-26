@@ -92,7 +92,7 @@ test("Agent client registers, heartbeats, polls, and claims with bearer auth", a
     "00000000-0000-4000-8000-000000000001",
     "running",
   );
-  const result = await client.submitSimulatedResult(
+  const result = await client.submitWechatAssistedResult(
     "00000000-0000-4000-8000-000000000003",
     "00000000-0000-4000-8000-000000000001",
   );
@@ -122,6 +122,7 @@ test("Agent client registers, heartbeats, polls, and claims with bearer auth", a
   assert.equal(requests[5].url, "/api/agent/tasks/00000000-0000-4000-8000-000000000003/result");
   assert.equal(requests[5].authorization, "Bearer test-token");
   assert.equal(requests[5].body.result_code, "friend_request_sent");
+  assert.match(requests[5].body.result_notes, /人工确认并发送/);
   assert.equal(result.task.status, "completed");
   assert.equal(requests[6].body.result_code, "desktop_test_completed");
   assert.match(requests[6].body.result_notes, /desktop-test\.png/);

@@ -155,6 +155,11 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
                               </td>
                               <td className="px-4 py-4 text-slate-600">
                                 {getTaskTypeLabel(task.task_type)}
+                                {task.task_type === "wechat_add_friend" ? (
+                                  <p className="mt-1 text-xs font-semibold text-[#668074]">
+                                    半自动辅助 · 需人工确认发送
+                                  </p>
+                                ) : null}
                               </td>
                               <td className="px-4 py-4 text-slate-600">
                                 {getTaskStatusLabel(task.status)}

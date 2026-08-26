@@ -116,7 +116,7 @@ export class BdAgentApiClient {
     });
   }
 
-  submitSimulatedResult(taskId: string, agentId: string) {
+  submitWechatAssistedResult(taskId: string, agentId: string) {
     return this.request<{
       result: { result_code: "friend_request_sent" };
       success: true;
@@ -126,7 +126,7 @@ export class BdAgentApiClient {
         next_action: "等待好友通过",
         occurred_at: new Date().toISOString(),
         result_code: "friend_request_sent",
-        result_notes: "Phase 8.3 人工确认后的模拟执行；未进行微信自动化操作",
+        result_notes: "用户已在微信中人工确认并发送好友申请；Agent 仅启动客户端和复制微信号",
       }),
       headers: { "X-Agent-Instance-Id": agentId },
       method: "POST",
