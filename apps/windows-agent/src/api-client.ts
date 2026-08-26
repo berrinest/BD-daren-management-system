@@ -105,13 +105,18 @@ export class BdAgentApiClient {
     taskId: string,
     agentId: string,
     state: "failed" | "running",
+    details?: { action?: string; error?: string },
   ) {
     return this.post<{
       execution_status: "failed" | "running";
+      current_action: string | null;
+      error: string | null;
       status: "in_progress";
       task_id: string;
     }>(`/api/agent/tasks/${encodeURIComponent(taskId)}/state`, {
       agent_id: agentId,
+      action: details?.action,
+      error: details?.error,
       state,
     });
   }

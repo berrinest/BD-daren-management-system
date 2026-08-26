@@ -27,6 +27,10 @@ type AgentInstanceMutation = {
 
 const selection = "id, device_name, agent_type, version, status, last_seen_at, created_at, updated_at";
 
+export function getAgentOnlineCutoff(reference = new Date()) {
+  return new Date(reference.getTime() - 90_000).toISOString();
+}
+
 function agentInstancesTable(supabase: SupabaseClient<Database>) {
   // The migration is intentionally not pushed yet, so generated remote types do
   // not include agent_instances until database approval and type regeneration.

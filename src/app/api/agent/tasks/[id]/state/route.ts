@@ -8,9 +8,15 @@ export const dynamic = "force-dynamic";
 
 const paramsSchema = z.object({ id: z.uuid() });
 const bodySchema = z.object({
+  action: z.string().trim().min(1).max(100).optional(),
   agent_id: z.uuid(),
+  error: z.string().trim().min(1).max(1000).optional(),
   state: z.enum(["running", "failed"]),
-}).strict();
+}).strict().superRefine((value, context) => {
+  if (value.state === "failed" && !value.error) {
+    context.addIssue({ code: "custom", message: "A failure reason is required", path: ["error"] });
+  }
+});
 const headers = { "Cache-Control": "private, no-store" };
 
 function error(code: string, message: string, status: number) {
@@ -45,6 +51,8 @@ export async function POST(
       params.data.id,
       input.data.agent_id,
       input.data.state,
+      input.data.action ?? null,
+      input.data.error ?? null,
     );
     if (result.status === "invalid_agent") {
       return error("AGENT_NOT_ACTIVE", "Agent instance was not found or is not active", 409);

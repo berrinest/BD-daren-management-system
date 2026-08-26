@@ -205,7 +205,9 @@ export async function recoverInProgressTask(formData: FormData) {
     .from("tasks")
     .update({
       agent_id: null,
+      agent_current_action: null,
       agent_execution_status: null,
+      agent_last_error: null,
       execution_source: "manual",
       started_at: null,
       status: "pending",

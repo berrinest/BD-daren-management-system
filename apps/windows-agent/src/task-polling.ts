@@ -33,6 +33,30 @@ function printTask(task: AgentTask) {
   console.log(`  到期时间：${task.due_at}`);
 }
 
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message.slice(0, 1000) : "未知执行错误";
+}
+
+async function reportFailure(
+  client: BdAgentApiClient,
+  taskId: string,
+  agentId: string,
+  error: unknown,
+) {
+  const message = errorMessage(error);
+  try {
+    await client.updateTaskState(taskId, agentId, "failed", {
+      action: "execution_failed",
+      error: message,
+    });
+    console.warn(`任务已保留为失败状态，可在 Web 任务中心恢复：${message}`);
+  } catch (reportError) {
+    console.warn(
+      `失败状态暂时无法同步，任务仍保持 in_progress，可在 Web 恢复。原因：${errorMessage(reportError)}`,
+    );
+  }
+}
+
 export async function runTaskPolling(options: {
   agentId: string;
   client: BdAgentApiClient;
@@ -70,6 +94,7 @@ export async function runTaskPolling(options: {
                 task.task_id,
                 options.agentId,
                 "running",
+                { action: isDesktopTest ? "desktop_test" : "open_wechat" },
               );
               console.log(`任务执行状态：${running.execution_status}`);
               try {
@@ -96,6 +121,9 @@ export async function runTaskPolling(options: {
                     taskId: task.task_id,
                     wechat: task.target.wechat,
                   });
+                  await options.client.updateTaskState(task.task_id, options.agentId, "running", {
+                    action: "prepare_contact",
+                  });
                   console.log(`微信号已复制：${task.target.wechat}`);
 
                   const searched = await input.question("请在微信中粘贴并搜索。已完成搜索？[y/N] ");
@@ -104,17 +132,26 @@ export async function runTaskPolling(options: {
                     confirmed: confirmed(searched),
                     taskId: task.task_id,
                   });
+                  await options.client.updateTaskState(task.task_id, options.agentId, "running", {
+                    action: "search_contact",
+                  });
                   const opened = await input.question("已人工打开正确的联系人资料页？[y/N] ");
                   await wechatExecutor.recordUserStep({
                     action: "open_profile",
                     confirmed: confirmed(opened),
                     taskId: task.task_id,
                   });
+                  await options.client.updateTaskState(task.task_id, options.agentId, "running", {
+                    action: "open_profile",
+                  });
                   const sent = await input.question("请人工核对并发送好友申请。确认已经手动发送？[y/N] ");
                   await wechatExecutor.recordUserStep({
                     action: "wait_user_confirm",
                     confirmed: confirmed(sent),
                     taskId: task.task_id,
+                  });
+                  await options.client.updateTaskState(task.task_id, options.agentId, "running", {
+                    action: "wait_user_confirm",
                   });
                   const result = await options.client.submitWechatAssistedResult(
                     task.task_id,
@@ -123,7 +160,7 @@ export async function runTaskPolling(options: {
                   console.log(`人工确认结果已回传：任务状态 ${result.task.status}`);
                 }
               } catch (error) {
-                await options.client.updateTaskState(task.task_id, options.agentId, "failed");
+                await reportFailure(options.client, task.task_id, options.agentId, error);
                 throw error;
               }
             } else {
@@ -131,6 +168,7 @@ export async function runTaskPolling(options: {
                 task.task_id,
                 options.agentId,
                 "failed",
+                { action: "user_cancelled", error: "用户取消了本次执行" },
               );
               console.log(`未确认模拟执行，任务执行状态：${failed.execution_status}`);
             }

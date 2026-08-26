@@ -5,6 +5,7 @@ import { z } from "zod";
 import { FollowUpTimeline } from "@/components/follow-ups/follow-up-timeline";
 import { ArchiveTalentForm } from "@/components/talents/archive-talent-form";
 import { CreateTaskForm } from "@/components/tasks/create-task-form";
+import { CreateWechatTaskForm } from "@/components/tasks/create-wechat-task-form";
 import { TaskActions } from "@/components/tasks/task-actions";
 import { CopyButton } from "@/components/ui/copy-button";
 import { getTalentPlatformLabel, getTalentPriorityLabel, getTalentStageLabel, getTaskTypeLabel } from "@/lib/constants";
@@ -157,6 +158,12 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
             ))}
           </div>
         ) : null}
+
+        <div className="mt-6 border-t border-[#edf0ee] pt-6">
+          <h3 className="text-sm font-semibold text-[#35443e]">微信添加任务</h3>
+          <p className="mt-1 text-xs text-slate-500">Windows Agent 只负责打开微信和复制微信号，发送前仍需人工确认。</p>
+          <CreateWechatTaskForm talentId={talent.id} />
+        </div>
 
         <div className="mt-6 border-t border-[#edf0ee] pt-6">
           <h3 className="mb-3 text-sm font-semibold text-[#35443e]">创建下一次跟进任务</h3>

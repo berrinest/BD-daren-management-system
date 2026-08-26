@@ -10,7 +10,7 @@ import {
   TASK_STATUSES,
 } from "@/lib/constants";
 import { formatDateTime } from "@/lib/formatters/date";
-import { listAgentInstances } from "@/lib/data/agent-instances";
+import { getAgentOnlineCutoff, listAgentInstances } from "@/lib/data/agent-instances";
 import { createClient } from "@/lib/supabase/server";
 
 const sectionStyles = {
@@ -24,6 +24,18 @@ const agentExecutionLabels: Record<string, string> = {
   claimed: "已领取",
   failed: "执行失败",
   running: "运行中",
+};
+
+const agentActionLabels: Record<string, string> = {
+  claimed: "任务已领取",
+  desktop_test: "桌面安全测试",
+  execution_failed: "执行中断",
+  open_profile: "已打开资料页",
+  open_wechat: "正在启动微信",
+  prepare_contact: "微信号已复制",
+  search_contact: "已搜索联系人",
+  user_cancelled: "用户取消执行",
+  wait_user_confirm: "等待人工确认发送",
 };
 
 type TasksPageProps = {
@@ -42,14 +54,14 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
     supabase
       .from("tasks")
       .select(
-        "id, talent_id, resource_id, task_type, status, due_at, notes, next_action, agent_id, talents!tasks_talent_owner_fk(nickname, primary_platform, wechat), talent_resources!tasks_resource_owner_fk(nickname, primary_platform, platform_account, wechat)",
+        "id, talent_id, resource_id, task_type, status, due_at, notes, next_action, agent_id, execution_source, result_notes, updated_at, talents!tasks_talent_owner_fk(nickname, primary_platform, wechat), talent_resources!tasks_resource_owner_fk(nickname, primary_platform, platform_account, wechat)",
       )
       .eq("user_id", userId)
       .order("due_at", { ascending: true }),
     listAgentInstances(supabase, userId),
     supabase
       .from("tasks")
-      .select("id, agent_execution_status" as never)
+      .select("id, agent_execution_status, agent_current_action, agent_last_error" as never)
       .eq("user_id", userId),
   ]);
   const { data: tasks, error } = taskResult;
@@ -57,9 +69,17 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
   const executionStates = new Map(
     ((executionResult.data ?? []) as unknown as Array<{
       agent_execution_status: string | null;
+      agent_current_action: string | null;
+      agent_last_error: string | null;
       id: string;
-    }>).map((task) => [task.id, task.agent_execution_status]),
+    }>).map((task) => [task.id, task]),
   );
+
+  const onlineCutoff = getAgentOnlineCutoff();
+  const recentAgentTasks = (tasks ?? [])
+    .filter((task) => task.execution_source === "agent" || task.agent_id)
+    .sort((left, right) => Date.parse(right.updated_at) - Date.parse(left.updated_at))
+    .slice(0, 8);
 
   return (
     <main className="p-5 md:p-8">
@@ -91,6 +111,47 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
 
         {!error ? (
           <div className="mt-6 grid gap-6">
+            <section className="rounded-2xl border border-[#e7ebe8] bg-white p-5 shadow-sm">
+              <div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-end">
+                <div>
+                  <h2 className="font-semibold text-[#35443e]">Windows Agent 状态</h2>
+                  <p className="mt-1 text-sm text-slate-500">当前执行任务、最近动作与可恢复失败记录。</p>
+                </div>
+                <span className="text-xs text-slate-400">超过 90 秒未心跳显示离线</span>
+              </div>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {(agentResult.data ?? []).map((agent) => {
+                  const online = agent.status === "active" && agent.last_seen_at >= onlineCutoff;
+                  const currentTask = (tasks ?? []).find((task) => task.agent_id === agent.id && task.status === "in_progress");
+                  const state = currentTask ? executionStates.get(currentTask.id) : undefined;
+                  return <article className="rounded-xl border border-[#e4e9e6] bg-[#f8faf8] p-4" key={agent.id}>
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="font-semibold text-[#35443e]">{agent.device_name}</p>
+                      <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${online ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}>{online ? "在线" : "离线"}</span>
+                    </div>
+                    <p className="mt-2 text-xs text-slate-500">最后心跳：{formatDateTime(agent.last_seen_at)}</p>
+                    {currentTask ? <div className="mt-3 border-t border-[#e4e9e6] pt-3 text-sm">
+                      <p className="font-medium text-[#35443e]">当前任务：{getTaskTypeLabel(currentTask.task_type)}</p>
+                      <p className="mt-1 text-slate-600">当前动作：{state?.agent_current_action ? agentActionLabels[state.agent_current_action] ?? state.agent_current_action : "等待 Agent 更新"}</p>
+                      {state?.agent_last_error ? <p className="mt-1 text-red-600">失败原因：{state.agent_last_error}</p> : null}
+                    </div> : <p className="mt-3 text-sm text-slate-400">当前没有执行中的任务</p>}
+                  </article>;
+                })}
+                {(agentResult.data ?? []).length === 0 ? <p className="text-sm text-slate-400">尚未连接 Windows Agent。</p> : null}
+              </div>
+              {recentAgentTasks.length > 0 ? <div className="mt-5 border-t border-[#edf0ee] pt-4">
+                <h3 className="text-sm font-semibold text-[#35443e]">最近执行记录</h3>
+                <div className="mt-3 grid gap-2">
+                  {recentAgentTasks.map((task) => {
+                    const state = executionStates.get(task.id);
+                    return <div className="flex flex-col justify-between gap-1 rounded-lg bg-[#f8faf8] px-3 py-2.5 text-sm sm:flex-row" key={task.id}>
+                      <span>{getTaskTypeLabel(task.task_type)} · {getTaskStatusLabel(task.status)}</span>
+                      <span className={state?.agent_last_error ? "text-red-600" : "text-slate-500"}>{state?.agent_last_error ?? task.result_notes ?? (state?.agent_current_action ? agentActionLabels[state.agent_current_action] ?? state.agent_current_action : "暂无结果说明")}</span>
+                    </div>;
+                  })}
+                </div>
+              </div> : null}
+            </section>
             {TASK_STATUSES.map((status) => {
               const statusTasks = tasks?.filter((task) => task.status === status) ?? [];
 
@@ -132,7 +193,8 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
                             const executingAgent = task.agent_id
                               ? agentsById.get(task.agent_id)
                               : undefined;
-                            const executionState = executionStates.get(task.id);
+                            const executionDetails = executionStates.get(task.id);
+                            const executionState = executionDetails?.agent_execution_status;
                             const isTalentTask = Boolean(task.talent_id && task.talents);
                             const target = isTalentTask ? task.talents : task.talent_resources;
                             const href = isTalentTask ? `/talents/${task.talent_id}` : `/resources/${task.resource_id}`;
@@ -168,6 +230,8 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
                                     Agent：{agentExecutionLabels[executionState] ?? executionState}
                                   </p>
                                 ) : null}
+                                {executionDetails?.agent_current_action ? <p className="mt-1 text-xs text-slate-500">{agentActionLabels[executionDetails.agent_current_action] ?? executionDetails.agent_current_action}</p> : null}
+                                {executionDetails?.agent_last_error ? <p className="mt-1 max-w-56 text-xs text-red-600">{executionDetails.agent_last_error}</p> : null}
                               </td>
                               <td className="px-4 py-4 text-slate-600">
                                 {formatDateTime(task.due_at)}

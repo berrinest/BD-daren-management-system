@@ -91,6 +91,7 @@ test("Agent client registers, heartbeats, polls, and claims with bearer auth", a
     "00000000-0000-4000-8000-000000000003",
     "00000000-0000-4000-8000-000000000001",
     "running",
+    { action: "open_wechat" },
   );
   const result = await client.submitWechatAssistedResult(
     "00000000-0000-4000-8000-000000000003",
@@ -118,6 +119,7 @@ test("Agent client registers, heartbeats, polls, and claims with bearer auth", a
   assert.equal(claim.execution_status, "claimed");
   assert.equal(requests[4].url, "/api/agent/tasks/00000000-0000-4000-8000-000000000003/state");
   assert.equal(requests[4].body.state, "running");
+  assert.equal(requests[4].body.action, "open_wechat");
   assert.equal(running.execution_status, "running");
   assert.equal(requests[5].url, "/api/agent/tasks/00000000-0000-4000-8000-000000000003/result");
   assert.equal(requests[5].authorization, "Bearer test-token");

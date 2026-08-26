@@ -93,6 +93,8 @@ export type AgentTaskResultSubmission =
   | { status: "conflict" | "invalid_result" | "not_found" | "unauthenticated" };
 
 type AgentTaskClaimUpdate = {
+  agent_current_action: "claimed";
+  agent_last_error: null;
   agent_id: string;
   agent_execution_status: "claimed";
   execution_source: "agent";
@@ -129,6 +131,8 @@ export async function claimAgentTask(
 
   const startedAt = new Date().toISOString();
   const update: AgentTaskClaimUpdate = {
+    agent_current_action: "claimed",
+    agent_last_error: null,
     agent_id: agentId,
     agent_execution_status: "claimed",
     execution_source: "agent",
@@ -341,6 +345,8 @@ export async function updateAgentTaskExecutionState(
   taskId: string,
   agentId: string,
   state: AgentExecutionState,
+  action: string | null,
+  error: string | null,
 ) {
   const { data: agent, error: agentError } = await getActiveAgentInstance(
     supabase,
@@ -352,12 +358,16 @@ export async function updateAgentTaskExecutionState(
 
   const result = await supabase
     .from("tasks")
-    .update({ agent_execution_status: state } as never)
+    .update({
+      agent_current_action: action,
+      agent_execution_status: state,
+      agent_last_error: state === "failed" ? error : null,
+    } as never)
     .eq("id", taskId)
     .eq("user_id", userId)
     .eq("agent_id", agentId)
     .eq("status", "in_progress")
-    .select("id, status, agent_execution_status" as never)
+    .select("id, status, agent_execution_status, agent_current_action, agent_last_error" as never)
     .maybeSingle();
   if (result.error) throw new Error("Agent execution state could not be updated");
   if (!result.data) return { status: "conflict" as const };
@@ -365,6 +375,8 @@ export async function updateAgentTaskExecutionState(
   return {
     state: {
       execution_status: state,
+      current_action: action,
+      error: state === "failed" ? error : null,
       status: "in_progress" as const,
       task_id: taskId,
     },
