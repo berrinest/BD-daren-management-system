@@ -6,6 +6,7 @@ import {
   AGENT_TALENT_RESULT_CODES,
   submitAgentTaskResult,
 } from "@/lib/data/agent";
+import { authenticateAgentApiRequest } from "@/lib/supabase/agent-api";
 
 export const dynamic = "force-dynamic";
 
@@ -60,13 +61,21 @@ export async function POST(
   }
 
   try {
-    const result = await submitAgentTaskResult(params.data.id, {
+    const auth = await authenticateAgentApiRequest(request);
+    if (!auth) {
+      return errorResponse("UNAUTHENTICATED", "Authentication required", 401);
+    }
+    const agentId = request.headers.get("x-agent-instance-id")?.trim();
+    if (auth.authType === "bearer" && !z.uuid().safeParse(agentId).success) {
+      return errorResponse("INVALID_AGENT_ID", "A valid Agent instance id is required", 400);
+    }
+    const result = await submitAgentTaskResult(auth.supabase, auth.userId, params.data.id, {
       next_action: input.data.next_action ?? null,
       next_action_at: input.data.next_action_at ?? null,
       occurred_at: input.data.occurred_at ?? new Date().toISOString(),
       result_code: input.data.result_code,
       result_notes: input.data.result_notes ?? null,
-    });
+    }, auth.authType === "bearer" ? agentId : undefined);
 
     if (result.status === "unauthenticated") {
       return errorResponse("UNAUTHENTICATED", "Authentication required", 401);

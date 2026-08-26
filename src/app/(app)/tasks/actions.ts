@@ -205,10 +205,11 @@ export async function recoverInProgressTask(formData: FormData) {
     .from("tasks")
     .update({
       agent_id: null,
+      agent_execution_status: null,
       execution_source: "manual",
       started_at: null,
       status: "pending",
-    })
+    } as never)
     .eq("id", input.data.task_id)
     .eq("user_id", userId)
     .eq("status", "in_progress")

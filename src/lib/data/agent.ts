@@ -2,7 +2,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getActiveAgentInstance } from "@/lib/data/agent-instances";
 import { getShanghaiDayRange } from "@/lib/formatters/date";
-import { createClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
 
 export const AGENT_SUPPORTED_TASK_TYPES = ["wechat_add_friend"] as const;
@@ -20,6 +19,7 @@ export type AgentTaskTargetDto = {
 export type AgentTaskDto = {
   created_at: string;
   due_at: string;
+  execution_status: "claimed" | "failed" | "running" | null;
   next_action: string | null;
   status: "in_progress" | "pending";
   target: AgentTaskTargetDto;
@@ -33,6 +33,7 @@ export type AgentTasksResult =
 
 export type AgentTaskClaimDto = {
   agent_id: string;
+  execution_status: "claimed";
   started_at: string;
   status: "in_progress";
   task_id: string;
@@ -57,6 +58,7 @@ export const AGENT_RESOURCE_RESULT_CODES = [
 ] as const;
 
 export const AGENT_TALENT_RESULT_CODES = [
+  "friend_request_sent",
   "replied",
   "interested",
   "quote_sent",
@@ -86,6 +88,7 @@ export type AgentTaskResultSubmission =
 
 type AgentTaskClaimUpdate = {
   agent_id: string;
+  agent_execution_status: "claimed";
   execution_source: "agent";
   started_at: string;
   status: "in_progress";
@@ -121,6 +124,7 @@ export async function claimAgentTask(
   const startedAt = new Date().toISOString();
   const update: AgentTaskClaimUpdate = {
     agent_id: agentId,
+    agent_execution_status: "claimed",
     execution_source: "agent",
     started_at: startedAt,
     status: "in_progress",
@@ -139,6 +143,7 @@ export async function claimAgentTask(
   return {
     claim: {
       agent_id: agentId,
+      execution_status: "claimed",
       started_at: claimedTask.started_at ?? startedAt,
       status: "in_progress",
       task_id: claimedTask.id,
@@ -148,27 +153,42 @@ export async function claimAgentTask(
 }
 
 export async function submitAgentTaskResult(
+  supabase: SupabaseClient<Database>,
+  userId: string,
   taskId: string,
   input: AgentTaskResultInput,
+  agentId?: string,
 ): Promise<AgentTaskResultSubmission> {
-  const supabase = await createClient();
-  const { data: claimsData } = await supabase.auth.getClaims();
-  const userId = claimsData?.claims?.sub;
-  if (!userId) return { status: "unauthenticated" };
-
   const { data: task, error: taskError } = await supabase
     .from("tasks")
-    .select("id, status, talent_id, resource_id")
+    .select("id, status, talent_id, resource_id, agent_id, agent_execution_status" as never)
     .eq("id", taskId)
     .eq("user_id", userId)
     .maybeSingle();
   if (taskError) throw new Error("Agent task could not be checked");
   if (!task) return { status: "not_found" };
-  if (task.status !== "in_progress") return { status: "conflict" };
+  const claimedTask = task as unknown as {
+    agent_execution_status: string | null;
+    agent_id: string | null;
+    id: string;
+    resource_id: string | null;
+    status: string;
+    talent_id: string | null;
+  };
+  if (claimedTask.status !== "in_progress") return { status: "conflict" };
+  if (
+    agentId
+    && (
+      claimedTask.agent_id !== agentId
+      || claimedTask.agent_execution_status !== "running"
+    )
+  ) {
+    return { status: "conflict" };
+  }
 
-  const allowedResults = task.talent_id
+  const allowedResults = claimedTask.talent_id
     ? new Set<string>(AGENT_TALENT_RESULT_CODES)
-    : task.resource_id
+    : claimedTask.resource_id
       ? new Set<string>(AGENT_RESOURCE_RESULT_CODES)
       : null;
   if (!allowedResults?.has(input.result_code)) {
@@ -217,7 +237,7 @@ export async function getTodayAgentTasks(
   const { todayStart, tomorrowStart } = getShanghaiDayRange(now);
   let query = supabase
     .from("tasks")
-    .select("id, task_type, status, due_at, next_action, created_at, talent_id, resource_id, talents!tasks_talent_owner_fk(id, nickname, primary_platform, platform_account, wechat), talent_resources!tasks_resource_owner_fk(id, nickname, primary_platform, platform_account, wechat)")
+    .select("id, task_type, status, due_at, next_action, created_at, talent_id, resource_id, agent_execution_status, talents!tasks_talent_owner_fk(id, nickname, primary_platform, platform_account, wechat), talent_resources!tasks_resource_owner_fk(id, nickname, primary_platform, platform_account, wechat)" as never)
     .eq("user_id", userId)
     .in("task_type", [...AGENT_SUPPORTED_TASK_TYPES])
     .in("status", ["pending", "in_progress"])
@@ -232,11 +252,37 @@ export async function getTodayAgentTasks(
 
   if (error) throw new Error("Agent tasks could not be loaded");
 
-  const tasks = (data ?? []).flatMap<AgentTaskDto>((task) => {
+  const rows = (data ?? []) as unknown as Array<{
+    agent_execution_status: AgentTaskDto["execution_status"];
+    created_at: string;
+    due_at: string;
+    id: string;
+    next_action: string | null;
+    resource_id: string | null;
+    status: string;
+    talent_id: string | null;
+    talent_resources: {
+      id: string;
+      nickname: string;
+      platform_account: string | null;
+      primary_platform: string;
+      wechat: string | null;
+    } | null;
+    talents: {
+      id: string;
+      nickname: string;
+      platform_account: string | null;
+      primary_platform: string;
+      wechat: string | null;
+    } | null;
+    task_type: string;
+  }>;
+  const tasks = rows.flatMap<AgentTaskDto>((task) => {
     if (task.talent_id && task.talents) {
       return [{
         created_at: task.created_at,
         due_at: task.due_at,
+        execution_status: task.agent_execution_status,
         next_action: task.next_action,
         status: task.status as AgentTaskDto["status"],
         target: {
@@ -256,6 +302,7 @@ export async function getTodayAgentTasks(
       return [{
         created_at: task.created_at,
         due_at: task.due_at,
+        execution_status: task.agent_execution_status,
         next_action: task.next_action,
         status: task.status as AgentTaskDto["status"],
         target: {
@@ -275,4 +322,43 @@ export async function getTodayAgentTasks(
   });
 
   return { status: "ok", tasks };
+}
+
+export type AgentExecutionState = "failed" | "running";
+
+export async function updateAgentTaskExecutionState(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  taskId: string,
+  agentId: string,
+  state: AgentExecutionState,
+) {
+  const { data: agent, error: agentError } = await getActiveAgentInstance(
+    supabase,
+    userId,
+    agentId,
+  );
+  if (agentError) throw new Error("Agent instance could not be checked");
+  if (!agent) return { status: "invalid_agent" as const };
+
+  const result = await supabase
+    .from("tasks")
+    .update({ agent_execution_status: state } as never)
+    .eq("id", taskId)
+    .eq("user_id", userId)
+    .eq("agent_id", agentId)
+    .eq("status", "in_progress")
+    .select("id, status, agent_execution_status" as never)
+    .maybeSingle();
+  if (result.error) throw new Error("Agent execution state could not be updated");
+  if (!result.data) return { status: "conflict" as const };
+
+  return {
+    state: {
+      execution_status: state,
+      status: "in_progress" as const,
+      task_id: taskId,
+    },
+    status: "ok" as const,
+  };
 }

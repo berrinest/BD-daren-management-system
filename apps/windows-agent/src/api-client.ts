@@ -9,6 +9,7 @@ export type AgentInstance = {
 export type AgentTask = {
   created_at: string;
   due_at: string;
+  execution_status: "claimed" | "failed" | "running" | null;
   next_action: string | null;
   status: "in_progress" | "pending";
   target: {
@@ -25,6 +26,7 @@ export type AgentTask = {
 
 export type AgentTaskClaim = {
   agent_id: string;
+  execution_status: "claimed";
   started_at: string;
   status: "in_progress";
   task_id: string;
@@ -38,11 +40,12 @@ export class BdAgentApiClient {
 
   private async request<T extends object>(path: string, init?: RequestInit) {
     const response = await fetch(`${this.baseUrl}${path}`, {
+      ...init,
       headers: {
         Authorization: `Bearer ${this.accessToken}`,
         ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        ...init?.headers,
       },
-      ...init,
       signal: AbortSignal.timeout(15_000),
     });
     const payload = await response.json().catch(() => null) as T | {
@@ -96,5 +99,37 @@ export class BdAgentApiClient {
       `/api/agent/tasks/${encodeURIComponent(taskId)}/claim`,
       { agent_id: agentId },
     );
+  }
+
+  updateTaskState(
+    taskId: string,
+    agentId: string,
+    state: "failed" | "running",
+  ) {
+    return this.post<{
+      execution_status: "failed" | "running";
+      status: "in_progress";
+      task_id: string;
+    }>(`/api/agent/tasks/${encodeURIComponent(taskId)}/state`, {
+      agent_id: agentId,
+      state,
+    });
+  }
+
+  submitSimulatedResult(taskId: string, agentId: string) {
+    return this.request<{
+      result: { result_code: "friend_request_sent" };
+      success: true;
+      task: { status: "completed"; task_id: string };
+    }>(`/api/agent/tasks/${encodeURIComponent(taskId)}/result`, {
+      body: JSON.stringify({
+        next_action: "等待好友通过",
+        occurred_at: new Date().toISOString(),
+        result_code: "friend_request_sent",
+        result_notes: "Phase 8.3 人工确认后的模拟执行；未进行微信自动化操作",
+      }),
+      headers: { "X-Agent-Instance-Id": agentId },
+      method: "POST",
+    });
   }
 }

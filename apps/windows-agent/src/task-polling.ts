@@ -46,8 +46,31 @@ export async function runTaskPolling(options: {
           const answer = await input.question("是否由本机 Agent 领取？[y/N] ");
           if (/^y(es)?$/i.test(answer.trim())) {
             const claim = await options.client.claimTask(task.task_id, options.agentId);
-            console.log(`任务已领取：${claim.task_id}，状态 ${claim.status}`);
-            console.log("Phase 8.2 不执行微信操作，请在 Web 任务中心查看或恢复任务。");
+            console.log(`任务已领取：${claim.task_id}，执行状态 ${claim.execution_status}`);
+            const start = await input.question(
+              "确认进入 running 并执行 Phase 8.3 通信模拟？不会操作微信。[y/N] ",
+            );
+            if (/^y(es)?$/i.test(start.trim())) {
+              const running = await options.client.updateTaskState(
+                task.task_id,
+                options.agentId,
+                "running",
+              );
+              console.log(`任务执行状态：${running.execution_status}`);
+              console.log("正在模拟执行通信（不操作微信、鼠标或键盘）…");
+              const result = await options.client.submitSimulatedResult(
+                task.task_id,
+                options.agentId,
+              );
+              console.log(`模拟结果已回传：任务状态 ${result.task.status}`);
+            } else {
+              const failed = await options.client.updateTaskState(
+                task.task_id,
+                options.agentId,
+                "failed",
+              );
+              console.log(`未确认模拟执行，任务执行状态：${failed.execution_status}`);
+            }
           } else {
             console.log("已跳过本次领取；任务仍保持 pending。 ");
           }

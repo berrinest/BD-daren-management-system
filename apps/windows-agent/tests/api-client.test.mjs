@@ -23,6 +23,7 @@ test("Agent client registers, heartbeats, polls, and claims with bearer auth", a
         tasks: [{
           created_at: "2026-08-26T09:00:00.000Z",
           due_at: "2026-08-26T10:00:00.000Z",
+          execution_status: null,
           next_action: "添加微信好友",
           status: "pending",
           target: {
@@ -40,9 +41,25 @@ test("Agent client registers, heartbeats, polls, and claims with bearer auth", a
     } else if (request.url?.endsWith("/claim")) {
       response.end(JSON.stringify({
         agent_id: "00000000-0000-4000-8000-000000000001",
+        execution_status: "claimed",
         started_at: "2026-08-26T10:00:00.000Z",
         status: "in_progress",
         task_id: "00000000-0000-4000-8000-000000000003",
+      }));
+    } else if (request.url?.endsWith("/state")) {
+      response.end(JSON.stringify({
+        execution_status: request.url && JSON.parse(body).state,
+        status: "in_progress",
+        task_id: "00000000-0000-4000-8000-000000000003",
+      }));
+    } else if (request.url?.endsWith("/result")) {
+      response.end(JSON.stringify({
+        result: { result_code: "friend_request_sent" },
+        success: true,
+        task: {
+          status: "completed",
+          task_id: "00000000-0000-4000-8000-000000000003",
+        },
       }));
     } else {
       response.end(JSON.stringify({ agent: {
@@ -70,9 +87,18 @@ test("Agent client registers, heartbeats, polls, and claims with bearer auth", a
     "00000000-0000-4000-8000-000000000003",
     "00000000-0000-4000-8000-000000000001",
   );
+  const running = await client.updateTaskState(
+    "00000000-0000-4000-8000-000000000003",
+    "00000000-0000-4000-8000-000000000001",
+    "running",
+  );
+  const result = await client.submitSimulatedResult(
+    "00000000-0000-4000-8000-000000000003",
+    "00000000-0000-4000-8000-000000000001",
+  );
   server.close();
 
-  assert.equal(requests.length, 4);
+  assert.equal(requests.length, 6);
   assert.equal(requests[0].authorization, "Bearer test-token");
   assert.equal(requests[0].url, "/api/agent/instances/register");
   assert.equal(requests[0].body.agent_type, "windows");
@@ -84,4 +110,12 @@ test("Agent client registers, heartbeats, polls, and claims with bearer auth", a
   assert.equal(requests[3].url, "/api/agent/tasks/00000000-0000-4000-8000-000000000003/claim");
   assert.equal(requests[3].body.agent_id, "00000000-0000-4000-8000-000000000001");
   assert.equal(claim.status, "in_progress");
+  assert.equal(claim.execution_status, "claimed");
+  assert.equal(requests[4].url, "/api/agent/tasks/00000000-0000-4000-8000-000000000003/state");
+  assert.equal(requests[4].body.state, "running");
+  assert.equal(running.execution_status, "running");
+  assert.equal(requests[5].url, "/api/agent/tasks/00000000-0000-4000-8000-000000000003/result");
+  assert.equal(requests[5].authorization, "Bearer test-token");
+  assert.equal(requests[5].body.result_code, "friend_request_sent");
+  assert.equal(result.task.status, "completed");
 });

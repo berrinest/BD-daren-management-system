@@ -20,6 +20,12 @@ const sectionStyles = {
   cancelled: "border-slate-200 bg-slate-50 text-slate-600",
 } as const;
 
+const agentExecutionLabels: Record<string, string> = {
+  claimed: "已领取",
+  failed: "执行失败",
+  running: "运行中",
+};
+
 type TasksPageProps = {
   searchParams: Promise<{ error?: string; notice?: string }>;
 };
@@ -32,7 +38,7 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
 
   if (!userId) redirect("/login");
 
-  const [taskResult, agentResult] = await Promise.all([
+  const [taskResult, agentResult, executionResult] = await Promise.all([
     supabase
       .from("tasks")
       .select(
@@ -41,9 +47,19 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
       .eq("user_id", userId)
       .order("due_at", { ascending: true }),
     listAgentInstances(supabase, userId),
+    supabase
+      .from("tasks")
+      .select("id, agent_execution_status" as never)
+      .eq("user_id", userId),
   ]);
   const { data: tasks, error } = taskResult;
   const agentsById = new Map((agentResult.data ?? []).map((agent) => [agent.id, agent]));
+  const executionStates = new Map(
+    ((executionResult.data ?? []) as unknown as Array<{
+      agent_execution_status: string | null;
+      id: string;
+    }>).map((task) => [task.id, task.agent_execution_status]),
+  );
 
   return (
     <main className="p-5 md:p-8">
@@ -116,6 +132,7 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
                             const executingAgent = task.agent_id
                               ? agentsById.get(task.agent_id)
                               : undefined;
+                            const executionState = executionStates.get(task.id);
                             const isTalentTask = Boolean(task.talent_id && task.talents);
                             const target = isTalentTask ? task.talents : task.talent_resources;
                             const href = isTalentTask ? `/talents/${task.talent_id}` : `/resources/${task.resource_id}`;
@@ -141,6 +158,11 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
                               </td>
                               <td className="px-4 py-4 text-slate-600">
                                 {getTaskStatusLabel(task.status)}
+                                {executionState ? (
+                                  <p className={`mt-1 text-xs font-semibold ${executionState === "failed" ? "text-red-600" : "text-sky-700"}`}>
+                                    Agent：{agentExecutionLabels[executionState] ?? executionState}
+                                  </p>
+                                ) : null}
                               </td>
                               <td className="px-4 py-4 text-slate-600">
                                 {formatDateTime(task.due_at)}
@@ -164,7 +186,7 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
                                     <input name="task_id" type="hidden" value={task.id} />
                                     <span className="text-xs font-semibold text-sky-700">
                                       {executingAgent
-                                        ? `${executingAgent.device_name} · ${executingAgent.status === "active" ? "执行中" : "已离线"}`
+                                        ? `${executingAgent.device_name} · ${executionState ? agentExecutionLabels[executionState] ?? executionState : "执行中"} · ${executingAgent.status === "active" ? "在线" : "离线"}`
                                         : "Agent 执行中"}
                                     </span>
                                     <FormSubmitButton
