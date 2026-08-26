@@ -4,7 +4,7 @@ import {
   FOLLOW_UP_METHODS,
   FOLLOW_UP_RESULTS,
   TALENT_STAGES,
-  TASK_TYPES,
+  FOLLOW_UP_TASK_TYPES,
 } from "@/lib/constants";
 
 const optionalNullableText = z.preprocess(
@@ -53,7 +53,7 @@ export const recordFollowUpAndScheduleNextSchema = createFollowUpSchema
       z.enum(TALENT_STAGES).nullable().optional(),
     ),
     next_task_due_at: optionalDateTime,
-    next_task_type: z.enum(TASK_TYPES),
+    next_task_type: z.enum(FOLLOW_UP_TASK_TYPES),
     next_task_notes: optionalNullableText,
     return_to: z.preprocess(
       (value) => (value === "" || value === null ? null : value),

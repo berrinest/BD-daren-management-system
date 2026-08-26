@@ -12,7 +12,7 @@ import {
   TALENT_STAGE_LABELS,
   TALENT_STAGES,
   TASK_TYPE_LABELS,
-  TASK_TYPES,
+  FOLLOW_UP_TASK_TYPES,
 } from "@/lib/constants";
 import { formatDateTime, toShanghaiDateTimeLocalValue } from "@/lib/formatters/date";
 
@@ -109,7 +109,7 @@ export function CreateFollowUpForm({
         </div>
         <div className={`${nextStepOpen ? "grid" : "hidden"} mt-4 gap-4 md:grid-cols-2`}>
             <label className="grid gap-2 text-sm font-medium text-[#35443e]">下一次跟进时间<input className="rounded-lg border border-[#dfe5e1] px-3 py-2.5" name="next_task_due_at" type="datetime-local" /></label>
-            <label className="grid gap-2 text-sm font-medium text-[#35443e]">下一任务类型<select className="rounded-lg border border-[#dfe5e1] px-3 py-2.5" defaultValue="follow_up" name="next_task_type">{TASK_TYPES.map((value) => <option key={value} value={value}>{TASK_TYPE_LABELS[value]}</option>)}</select></label>
+            <label className="grid gap-2 text-sm font-medium text-[#35443e]">下一任务类型<select className="rounded-lg border border-[#dfe5e1] px-3 py-2.5" defaultValue="follow_up" name="next_task_type">{FOLLOW_UP_TASK_TYPES.map((value) => <option key={value} value={value}>{TASK_TYPE_LABELS[value]}</option>)}</select></label>
             <label className="grid gap-2 text-sm font-medium text-[#35443e]">下一阶段<select className="rounded-lg border border-[#dfe5e1] px-3 py-2.5" name="next_stage" onChange={(event) => setNextStage(event.target.value as "" | (typeof TALENT_STAGES)[number])} value={nextStage}><option value="">保持当前阶段</option>{TALENT_STAGES.map((value) => <option key={value} value={value}>{TALENT_STAGE_LABELS[value]}</option>)}</select></label>
             <label className="grid gap-2 text-sm font-medium text-[#35443e]">下一任务备注<input className="rounded-lg border border-[#dfe5e1] px-3 py-2.5" maxLength={2000} name="next_task_notes" placeholder="例如：再次确认合作意向" /></label>
         </div>

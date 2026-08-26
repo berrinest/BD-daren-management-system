@@ -6,7 +6,29 @@ export type AgentInstance = {
   version: string;
 };
 
-type AgentResponse = { agent: AgentInstance };
+export type AgentTask = {
+  created_at: string;
+  due_at: string;
+  next_action: string | null;
+  status: "in_progress" | "pending";
+  target: {
+    id: string;
+    nickname: string;
+    platform: string;
+    platform_account: string | null;
+    type: "resource" | "talent";
+    wechat: string | null;
+  };
+  task_id: string;
+  task_type: "wechat_add_friend";
+};
+
+export type AgentTaskClaim = {
+  agent_id: string;
+  started_at: string;
+  status: "in_progress";
+  task_id: string;
+};
 
 export class BdAgentApiClient {
   constructor(
@@ -14,26 +36,32 @@ export class BdAgentApiClient {
     private readonly accessToken: string,
   ) {}
 
-  private async post(path: string, body: unknown) {
+  private async request<T extends object>(path: string, init?: RequestInit) {
     const response = await fetch(`${this.baseUrl}${path}`, {
-      body: JSON.stringify(body),
       headers: {
         Authorization: `Bearer ${this.accessToken}`,
-        "Content-Type": "application/json",
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
       },
-      method: "POST",
+      ...init,
       signal: AbortSignal.timeout(15_000),
     });
-    const payload = await response.json().catch(() => null) as AgentResponse | {
+    const payload = await response.json().catch(() => null) as T | {
       error?: { code?: string; message?: string };
     } | null;
-    if (!response.ok || !payload || !("agent" in payload)) {
+    if (!response.ok || !payload) {
       const message = payload && "error" in payload
         ? payload.error?.message
         : `HTTP ${response.status}`;
       throw new Error(message || "BD Agent API request failed");
     }
-    return payload.agent;
+    return payload as T;
+  }
+
+  private post<T extends object>(path: string, body: unknown) {
+    return this.request<T>(path, {
+      body: JSON.stringify(body),
+      method: "POST",
+    });
   }
 
   register(input: {
@@ -41,18 +69,32 @@ export class BdAgentApiClient {
     installationId: string;
     version: string;
   }) {
-    return this.post("/api/agent/instances/register", {
+    return this.post<{ agent: AgentInstance }>("/api/agent/instances/register", {
       agent_type: "windows",
       device_name: input.deviceName,
       installation_id: input.installationId,
       version: input.version,
-    });
+    }).then((payload) => payload.agent);
   }
 
   heartbeat(agentId: string, version: string, status: "active" | "paused") {
-    return this.post(`/api/agent/instances/${encodeURIComponent(agentId)}/heartbeat`, {
+    return this.post<{ agent: AgentInstance }>(`/api/agent/instances/${encodeURIComponent(agentId)}/heartbeat`, {
       status,
       version,
-    });
+    }).then((payload) => payload.agent);
+  }
+
+  async getTasks() {
+    const payload = await this.request<{ tasks: AgentTask[] }>(
+      "/api/agent/tasks?scope=today&task_type=wechat_add_friend",
+    );
+    return payload.tasks;
+  }
+
+  claimTask(taskId: string, agentId: string) {
+    return this.post<AgentTaskClaim>(
+      `/api/agent/tasks/${encodeURIComponent(taskId)}/claim`,
+      { agent_id: agentId },
+    );
   }
 }

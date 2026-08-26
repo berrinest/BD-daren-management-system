@@ -1,6 +1,7 @@
 import { BdAgentApiClient } from "./api-client.js";
 import { getRuntimeConfig, loadOrCreateLocalConfig } from "./config.js";
 import { runHeartbeatLoop } from "./heartbeat.js";
+import { runTaskPolling } from "./task-polling.js";
 
 async function main() {
   const runtime = getRuntimeConfig();
@@ -24,13 +25,21 @@ async function main() {
   console.log(`Agent 已注册：${agent.device_name} (${agent.id})`);
 
   try {
-    await runHeartbeatLoop({
-      agentId: agent.id,
-      client,
-      intervalMs: runtime.heartbeatIntervalMs,
-      signal: controller.signal,
-      version: runtime.version,
-    });
+    await Promise.all([
+      runHeartbeatLoop({
+        agentId: agent.id,
+        client,
+        intervalMs: runtime.heartbeatIntervalMs,
+        signal: controller.signal,
+        version: runtime.version,
+      }),
+      runTaskPolling({
+        agentId: agent.id,
+        client,
+        intervalMs: runtime.taskPollingIntervalMs,
+        signal: controller.signal,
+      }),
+    ]);
   } finally {
     try {
       await client.heartbeat(agent.id, runtime.version, "paused");

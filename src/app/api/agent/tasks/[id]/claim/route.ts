@@ -2,17 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { claimAgentTask } from "@/lib/data/agent";
+import { authenticateAgentApiRequest } from "@/lib/supabase/agent-api";
 
 export const dynamic = "force-dynamic";
 
 const claimParamsSchema = z.object({ id: z.uuid() });
 const claimBodySchema = z.object({
-  agent_id: z
-    .string()
-    .trim()
-    .min(3, "agent_id must contain at least 3 characters")
-    .max(100, "agent_id must not exceed 100 characters")
-    .regex(/^[A-Za-z0-9][A-Za-z0-9._:-]*$/, "agent_id contains unsupported characters"),
+  agent_id: z.uuid("agent_id must be a valid Agent instance id"),
 }).strict();
 const noStoreHeaders = { "Cache-Control": "private, no-store" };
 
@@ -49,10 +45,16 @@ export async function POST(
   }
 
   try {
-    const result = await claimAgentTask(params.data.id, input.data.agent_id);
-    if (result.status === "unauthenticated") {
+    const auth = await authenticateAgentApiRequest(request);
+    if (!auth) {
       return errorResponse("UNAUTHENTICATED", "Authentication required", 401);
     }
+    const result = await claimAgentTask(
+      auth.supabase,
+      auth.userId,
+      params.data.id,
+      input.data.agent_id,
+    );
     if (result.status === "not_found") {
       return errorResponse("TASK_NOT_FOUND", "Task not found", 404);
     }
@@ -62,6 +64,16 @@ export async function POST(
         "Task is not pending or has already been claimed",
         409,
       );
+    }
+    if (result.status === "invalid_agent") {
+      return errorResponse(
+        "AGENT_NOT_ACTIVE",
+        "Agent instance was not found or is not active",
+        409,
+      );
+    }
+    if (result.status === "unsupported_task") {
+      return errorResponse("TASK_NOT_SUPPORTED", "Task is not supported by this Agent", 409);
     }
     if (result.status !== "ok") {
       return errorResponse("CLAIM_UNAVAILABLE", "Task claim is temporarily unavailable", 500);

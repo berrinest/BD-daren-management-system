@@ -1,7 +1,9 @@
 # Windows Agent MVP
 
-Phase 8.1 only registers this Windows installation and sends a heartbeat every
-30 seconds. It does not read tasks or control any desktop application.
+Phase 8.2 registers this Windows installation, sends a heartbeat every 30
+seconds, and polls supported BD tasks every 10 seconds. The user must confirm
+before the Agent claims a task. It does not control WeChat or any desktop
+application.
 
 Required environment variables:
 
@@ -21,3 +23,7 @@ pnpm --filter @bd/windows-agent start
 Press `Ctrl+C` to send a final paused heartbeat and exit gracefully. The local
 installation identifier is stored in `%LOCALAPPDATA%\BDTalentAgent\agent.json`.
 The access token is not written to this file.
+
+When a `wechat_add_friend` task is found, the CLI displays the public task DTO
+and asks whether this installation should claim it. Claiming only changes the
+task to `in_progress`; Phase 8.2 performs no platform action.

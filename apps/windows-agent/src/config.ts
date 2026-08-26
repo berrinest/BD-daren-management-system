@@ -12,6 +12,7 @@ export type RuntimeConfig = {
   apiBaseUrl: string;
   deviceName: string;
   heartbeatIntervalMs: number;
+  taskPollingIntervalMs: number;
   version: string;
 };
 
@@ -55,6 +56,7 @@ export function getRuntimeConfig(): RuntimeConfig {
     apiBaseUrl,
     deviceName: process.env.BD_AGENT_DEVICE_NAME?.trim() || hostname(),
     heartbeatIntervalMs: 30_000,
+    taskPollingIntervalMs: 10_000,
     version: "0.1.0",
   };
 }

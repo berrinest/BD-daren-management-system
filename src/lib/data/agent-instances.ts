@@ -47,6 +47,23 @@ export async function listAgentInstances(
   };
 }
 
+export async function getActiveAgentInstance(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  agentId: string,
+) {
+  const result = await agentInstancesTable(supabase)
+    .select(selection)
+    .eq("id", agentId)
+    .eq("user_id", userId)
+    .eq("status", "active")
+    .maybeSingle();
+  return result as unknown as {
+    data: AgentInstanceDto | null;
+    error: { message: string } | null;
+  };
+}
+
 export async function registerAgentInstance(
   supabase: SupabaseClient<Database>,
   userId: string,

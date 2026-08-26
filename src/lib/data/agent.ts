@@ -1,5 +1,12 @@
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+import { getActiveAgentInstance } from "@/lib/data/agent-instances";
 import { getShanghaiDayRange } from "@/lib/formatters/date";
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/types/database";
+
+export const AGENT_SUPPORTED_TASK_TYPES = ["wechat_add_friend"] as const;
+export type AgentSupportedTaskType = (typeof AGENT_SUPPORTED_TASK_TYPES)[number];
 
 export type AgentTaskTargetDto = {
   id: string;
@@ -33,7 +40,14 @@ export type AgentTaskClaimDto = {
 
 export type AgentTaskClaimResult =
   | { claim: AgentTaskClaimDto; status: "ok" }
-  | { status: "conflict" | "not_found" | "unauthenticated" };
+  | {
+      status:
+        | "conflict"
+        | "invalid_agent"
+        | "not_found"
+        | "unauthenticated"
+        | "unsupported_task";
+    };
 
 export const AGENT_RESOURCE_RESULT_CODES = [
   "friend_request_sent",
@@ -78,22 +92,30 @@ type AgentTaskClaimUpdate = {
 };
 
 export async function claimAgentTask(
+  supabase: SupabaseClient<Database>,
+  userId: string,
   taskId: string,
   agentId: string,
 ): Promise<AgentTaskClaimResult> {
-  const supabase = await createClient();
-  const { data: claimsData } = await supabase.auth.getClaims();
-  const userId = claimsData?.claims?.sub;
-  if (!userId) return { status: "unauthenticated" };
+  const { data: agent, error: agentError } = await getActiveAgentInstance(
+    supabase,
+    userId,
+    agentId,
+  );
+  if (agentError) throw new Error("Agent instance could not be checked");
+  if (!agent) return { status: "invalid_agent" };
 
   const { data: existingTask, error: lookupError } = await supabase
     .from("tasks")
-    .select("id, status")
+    .select("id, status, task_type")
     .eq("id", taskId)
     .eq("user_id", userId)
     .maybeSingle();
   if (lookupError) throw new Error("Agent task could not be checked");
   if (!existingTask) return { status: "not_found" };
+  if (!AGENT_SUPPORTED_TASK_TYPES.includes(existingTask.task_type as AgentSupportedTaskType)) {
+    return { status: "unsupported_task" };
+  }
   if (existingTask.status !== "pending") return { status: "conflict" };
 
   const startedAt = new Date().toISOString();
@@ -186,20 +208,25 @@ export async function submitAgentTaskResult(
   };
 }
 
-export async function getTodayAgentTasks(now = new Date()): Promise<AgentTasksResult> {
-  const supabase = await createClient();
-  const { data: claimsData } = await supabase.auth.getClaims();
-  const userId = claimsData?.claims?.sub;
-  if (!userId) return { status: "unauthenticated" };
-
+export async function getTodayAgentTasks(
+  supabase: SupabaseClient<Database>,
+  userId: string,
+  taskType?: AgentSupportedTaskType,
+  now = new Date(),
+): Promise<AgentTasksResult> {
   const { todayStart, tomorrowStart } = getShanghaiDayRange(now);
-  const { data, error } = await supabase
+  let query = supabase
     .from("tasks")
     .select("id, task_type, status, due_at, next_action, created_at, talent_id, resource_id, talents!tasks_talent_owner_fk(id, nickname, primary_platform, platform_account, wechat), talent_resources!tasks_resource_owner_fk(id, nickname, primary_platform, platform_account, wechat)")
     .eq("user_id", userId)
+    .in("task_type", [...AGENT_SUPPORTED_TASK_TYPES])
     .in("status", ["pending", "in_progress"])
     .gte("due_at", todayStart)
-    .lt("due_at", tomorrowStart)
+    .lt("due_at", tomorrowStart);
+
+  if (taskType) query = query.eq("task_type", taskType);
+
+  const { data, error } = await query
     .order("due_at", { ascending: true })
     .order("created_at", { ascending: true });
 

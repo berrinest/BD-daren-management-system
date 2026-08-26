@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
-import { getTodayAgentTasks } from "@/lib/data/agent";
+import {
+  AGENT_SUPPORTED_TASK_TYPES,
+  getTodayAgentTasks,
+} from "@/lib/data/agent";
+import { authenticateAgentApiRequest } from "@/lib/supabase/agent-api";
 
 export const dynamic = "force-dynamic";
 
 const agentTasksQuerySchema = z.object({
   scope: z.literal("today").default("today"),
+  task_type: z.enum(AGENT_SUPPORTED_TASK_TYPES).optional(),
 }).strict();
 
 const noStoreHeaders = { "Cache-Control": "private, no-store" };
@@ -25,14 +30,25 @@ export async function GET(request: Request) {
   }
 
   try {
-    const result = await getTodayAgentTasks();
-    if (result.status === "unauthenticated") {
+    const auth = await authenticateAgentApiRequest(request);
+    if (!auth) {
       return NextResponse.json(
         { error: { code: "UNAUTHENTICATED", message: "Authentication required" } },
         { headers: noStoreHeaders, status: 401 },
       );
     }
 
+    const result = await getTodayAgentTasks(
+      auth.supabase,
+      auth.userId,
+      input.data.task_type,
+    );
+    if (result.status !== "ok") {
+      return NextResponse.json(
+        { error: { code: "UNAUTHENTICATED", message: "Authentication required" } },
+        { headers: noStoreHeaders, status: 401 },
+      );
+    }
     return NextResponse.json(
       { tasks: result.tasks },
       { headers: noStoreHeaders, status: 200 },

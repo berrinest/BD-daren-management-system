@@ -10,6 +10,7 @@ import {
   TASK_STATUSES,
 } from "@/lib/constants";
 import { formatDateTime } from "@/lib/formatters/date";
+import { listAgentInstances } from "@/lib/data/agent-instances";
 import { createClient } from "@/lib/supabase/server";
 
 const sectionStyles = {
@@ -31,13 +32,18 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
 
   if (!userId) redirect("/login");
 
-  const { data: tasks, error } = await supabase
-    .from("tasks")
-    .select(
-      "id, talent_id, resource_id, task_type, status, due_at, notes, next_action, talents!tasks_talent_owner_fk(nickname, primary_platform, wechat), talent_resources!tasks_resource_owner_fk(nickname, primary_platform, platform_account, wechat)",
-    )
-    .eq("user_id", userId)
-    .order("due_at", { ascending: true });
+  const [taskResult, agentResult] = await Promise.all([
+    supabase
+      .from("tasks")
+      .select(
+        "id, talent_id, resource_id, task_type, status, due_at, notes, next_action, agent_id, talents!tasks_talent_owner_fk(nickname, primary_platform, wechat), talent_resources!tasks_resource_owner_fk(nickname, primary_platform, platform_account, wechat)",
+      )
+      .eq("user_id", userId)
+      .order("due_at", { ascending: true }),
+    listAgentInstances(supabase, userId),
+  ]);
+  const { data: tasks, error } = taskResult;
+  const agentsById = new Map((agentResult.data ?? []).map((agent) => [agent.id, agent]));
 
   return (
     <main className="p-5 md:p-8">
@@ -107,6 +113,9 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
                         </thead>
                         <tbody className="divide-y divide-[#edf0ee]">
                           {statusTasks.map((task) => {
+                            const executingAgent = task.agent_id
+                              ? agentsById.get(task.agent_id)
+                              : undefined;
                             const isTalentTask = Boolean(task.talent_id && task.talents);
                             const target = isTalentTask ? task.talents : task.talent_resources;
                             const href = isTalentTask ? `/talents/${task.talent_id}` : `/resources/${task.resource_id}`;
@@ -153,7 +162,11 @@ export default async function TasksPage({ searchParams }: TasksPageProps) {
                                 ) : status === "in_progress" ? (
                                   <form action={recoverInProgressTask} className="flex flex-col items-end gap-1.5">
                                     <input name="task_id" type="hidden" value={task.id} />
-                                    <span className="text-xs font-semibold text-sky-700">Agent 执行中</span>
+                                    <span className="text-xs font-semibold text-sky-700">
+                                      {executingAgent
+                                        ? `${executingAgent.device_name} · ${executingAgent.status === "active" ? "执行中" : "已离线"}`
+                                        : "Agent 执行中"}
+                                    </span>
                                     <FormSubmitButton
                                       className="rounded-lg border border-sky-200 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
                                       label="恢复待处理"
