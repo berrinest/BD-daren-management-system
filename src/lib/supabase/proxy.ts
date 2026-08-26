@@ -5,7 +5,7 @@ import { getSupabasePublicEnv } from "@/lib/env";
 import type { Database } from "@/types/database";
 
 const PUBLIC_ROUTES = new Set(["/login"]);
-const SELF_AUTHENTICATING_API_PREFIX = "/api/agent/tasks";
+const SELF_AUTHENTICATING_API_PREFIX = "/api/agent";
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });

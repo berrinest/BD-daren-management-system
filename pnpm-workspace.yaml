@@ -1,3 +1,6 @@
+packages:
+  - 'apps/*'
+
 allowBuilds:
   supabase: true
   unrs-resolver: true

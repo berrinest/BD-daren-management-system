@@ -5,10 +5,10 @@
   "packageManager": "pnpm@11.19.0",
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "next build && pnpm --filter @bd/windows-agent build",
     "start": "next start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit && pnpm --filter @bd/windows-agent typecheck"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.4",

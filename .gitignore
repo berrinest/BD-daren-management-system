@@ -4,6 +4,7 @@ Thumbs.db
 *.log
 .next/
 node_modules/
+apps/windows-agent/dist/
 .pnpm-store/
 .env
 .env.local
