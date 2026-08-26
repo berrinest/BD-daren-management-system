@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { recoverInProgressTask } from "@/app/(app)/tasks/actions";
 import { TaskActions } from "@/components/tasks/task-actions";
+import { FormSubmitButton } from "@/components/ui/form-submit-button";
 import {
   getTaskStatusLabel,
   getTaskTypeLabel,
@@ -17,7 +19,12 @@ const sectionStyles = {
   cancelled: "border-slate-200 bg-slate-50 text-slate-600",
 } as const;
 
-export default async function TasksPage() {
+type TasksPageProps = {
+  searchParams: Promise<{ error?: string; notice?: string }>;
+};
+
+export default async function TasksPage({ searchParams }: TasksPageProps) {
+  const params = await searchParams;
   const supabase = await createClient();
   const { data: claimsData } = await supabase.auth.getClaims();
   const userId = claimsData?.claims?.sub;
@@ -42,6 +49,17 @@ export default async function TasksPage() {
         <p className="mt-2 text-sm text-slate-500">
           查看待处理、已完成和已取消的基础任务。
         </p>
+
+        {params.notice === "recovered" ? (
+          <p className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800" role="status">
+            任务已恢复为待处理，可以重新进入今日工作队列。
+          </p>
+        ) : null}
+        {params.error ? (
+          <p className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+            {params.error.slice(0, 200)}
+          </p>
+        ) : null}
 
         {error ? (
           <p className="mt-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -133,9 +151,15 @@ export default async function TasksPage() {
                                 ) : task.status === "pending" ? (
                                   <Link className="text-xs font-semibold text-[#31594b] hover:underline" href={href}>进入资源详情</Link>
                                 ) : status === "in_progress" ? (
-                                  <span className="text-xs font-semibold text-sky-700">
-                                    Agent 执行中
-                                  </span>
+                                  <form action={recoverInProgressTask} className="flex flex-col items-end gap-1.5">
+                                    <input name="task_id" type="hidden" value={task.id} />
+                                    <span className="text-xs font-semibold text-sky-700">Agent 执行中</span>
+                                    <FormSubmitButton
+                                      className="rounded-lg border border-sky-200 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                      label="恢复待处理"
+                                      pendingLabel="正在恢复…"
+                                    />
+                                  </form>
                                 ) : (
                                   <span className="text-xs text-slate-400">已结束</span>
                                 )}

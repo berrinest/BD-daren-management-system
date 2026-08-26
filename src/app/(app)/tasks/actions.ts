@@ -13,6 +13,7 @@ import {
   bulkCreateResourceTasksSchema,
   createTaskSchema,
   executeBdTaskSchema,
+  recoverInProgressTaskSchema,
   taskMutationSchema,
 } from "@/lib/validations";
 
@@ -61,8 +62,13 @@ export async function executeBdTask(formData: FormData) {
       p_method: "wechat",
       p_result: input.data.result,
       p_notes: input.data.notes ?? undefined,
+      p_next_task_due_at: input.data.next_action_at?.toISOString() ?? undefined,
+      p_next_task_type: "follow_up",
+      p_next_task_notes: input.data.next_action ?? undefined,
     });
-    if (error || !data?.[0]?.follow_up_record_id || !data[0].completed_task_id) {
+    const result = data?.[0];
+    const nextTaskMissing = Boolean(input.data.next_action_at && !result?.next_task_id);
+    if (error || !result?.follow_up_record_id || !result.completed_task_id || nextTaskMissing) {
       redirect("/work?error=达人任务执行失败，请检查任务状态后重试");
     }
   } else if (task.resource_id) {
@@ -182,6 +188,43 @@ export async function bulkCreateResourceTasks(formData: FormData) {
   revalidatePath("/tasks");
   revalidatePath("/work");
   redirect(`/resources?notice=batch-tasks&success=${success}&skipped=${skipped}`);
+}
+
+export async function recoverInProgressTask(formData: FormData) {
+  const input = recoverInProgressTaskSchema.safeParse({
+    task_id: formData.get("task_id"),
+  });
+  if (!input.success) redirect("/tasks?error=任务信息无效，请刷新后重试");
+
+  const supabase = await createClient();
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
+  if (!userId) redirect("/login");
+
+  const { data: task, error } = await supabase
+    .from("tasks")
+    .update({
+      agent_id: null,
+      execution_source: "manual",
+      started_at: null,
+      status: "pending",
+    })
+    .eq("id", input.data.task_id)
+    .eq("user_id", userId)
+    .eq("status", "in_progress")
+    .select("id, talent_id, resource_id")
+    .maybeSingle();
+
+  if (error || !task) {
+    redirect("/tasks?error=该任务已不存在或不再处于执行中");
+  }
+
+  revalidatePath("/dashboard");
+  revalidatePath("/work");
+  revalidatePath("/tasks");
+  if (task.talent_id) revalidatePath(`/talents/${task.talent_id}`);
+  if (task.resource_id) revalidatePath(`/resources/${task.resource_id}`);
+  redirect("/tasks?notice=recovered");
 }
 
 function taskRedirect(returnTo: "dashboard" | "talent" | "tasks" | "work", talentId: string, notice?: string) {

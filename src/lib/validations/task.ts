@@ -70,6 +70,10 @@ export const executeBdTaskSchema = z.object({
   next_action_at: optionalTaskExecutionDateTime,
 });
 
+export const recoverInProgressTaskSchema = z.object({
+  task_id: z.uuid(),
+});
+
 export const taskMutationSchema = z.object({
   task_id: z.uuid(),
   talent_id: z.uuid(),
