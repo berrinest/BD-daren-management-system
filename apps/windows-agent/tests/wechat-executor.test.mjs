@@ -6,21 +6,33 @@ import { WechatAssistExecutor } from "../dist/executor/wechat/index.js";
 test("WeChat executor only launches the public client, copies contact, and logs manual confirmations", async () => {
   const scripts = [];
   const logs = [];
+  const consoleMessages = [];
+  const originalLog = console.log;
+  console.log = (...values) => { consoleMessages.push(values.join(" ")); };
   const executor = new WechatAssistExecutor(
     async (script) => { scripts.push(script); },
     async (entry) => { logs.push(entry); },
   );
   const controller = new AbortController();
 
-  await executor.prepare({
-    signal: controller.signal,
-    taskId: "task-1",
-    wechat: "wx'test",
-  });
-  for (const action of ["search_contact", "open_profile", "wait_user_confirm"]) {
-    await executor.recordUserStep({ action, confirmed: true, taskId: "task-1" });
+  try {
+    await executor.prepare({
+      signal: controller.signal,
+      taskId: "task-1",
+      wechat: "wx'test",
+    });
+    for (const action of ["search_contact", "open_profile", "wait_user_confirm"]) {
+      await executor.recordUserStep({ action, confirmed: true, taskId: "task-1" });
+    }
+  } finally {
+    console.log = originalLog;
   }
 
+  assert.deepEqual(consoleMessages.slice(0, 3), [
+    "[wechat executor] begin",
+    "[wechat executor] calling open_wechat",
+    "[wechat executor] open_wechat: start",
+  ]);
   assert.equal(scripts.length, 2);
   assert.match(scripts[0], /weixin:\/\//);
   assert.match(scripts[0], /BD_WECHAT_PATH/);

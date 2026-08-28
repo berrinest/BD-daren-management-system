@@ -112,6 +112,7 @@ export async function runTaskPolling(options: {
                   );
                   console.log(`桌面测试结果已回传：任务状态 ${result.task.status}`);
                 } else if (task.task_type === "wechat_add_friend") {
+                  console.log("[wechat executor] task branch entered");
                   if (!task.target.wechat) {
                     throw new Error("该任务没有微信号，无法进入微信辅助流程");
                   }
@@ -160,6 +161,9 @@ export async function runTaskPolling(options: {
                   console.log(`人工确认结果已回传：任务状态 ${result.task.status}`);
                 }
               } catch (error) {
+                if (task.task_type === "wechat_add_friend") {
+                  console.error("[wechat executor] exception:", error);
+                }
                 await reportFailure(options.client, task.task_id, options.agentId, error);
                 throw error;
               }

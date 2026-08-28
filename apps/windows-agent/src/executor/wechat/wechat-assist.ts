@@ -46,9 +46,11 @@ export class WechatAssistExecutor implements WechatExecutor {
   }
 
   async prepare({ signal, taskId, wechat }: WechatPrepareContext) {
+    console.log("[wechat executor] begin");
     const contact = wechat.trim();
     if (!contact) throw new Error("该任务没有微信号，无法准备联系人");
 
+    console.log("[wechat executor] calling open_wechat");
     await this.execute(taskId, "open_wechat", async () => {
       const explicitPath = this.wechatPath
         ? `$wechatPath = ${quotePowerShell(this.wechatPath)}\nif (-not (Test-Path -LiteralPath $wechatPath)) { throw 'BD_WECHAT_PATH does not exist' }\nStart-Process -FilePath $wechatPath`
