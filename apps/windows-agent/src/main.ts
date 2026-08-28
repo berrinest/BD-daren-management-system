@@ -51,7 +51,6 @@ async function main() {
 }
 
 main().catch((error: unknown) => {
-  const message = error instanceof Error ? error.message : "Unknown startup error";
-  console.error(`Windows Agent 启动失败：${message}`);
+  console.error("Windows Agent 启动失败：", error);
   process.exitCode = 1;
 });
