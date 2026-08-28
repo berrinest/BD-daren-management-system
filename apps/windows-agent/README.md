@@ -31,6 +31,13 @@ The refresh token is stored as a Generic Credential in Windows Credential
 Manager and is never written to this file or printed. The public Web/Supabase
 addresses are stored locally so later starts do not require environment setup.
 
+Network requests use one shared Agent HTTP layer. Proxy discovery checks
+`HTTPS_PROXY`, `HTTP_PROXY`, and `ALL_PROXY` (including lower-case Windows
+variants) in that order, then checks the current user's Windows Internet
+Settings. When a proxy is found, the Agent restarts itself with Node's official
+`--use-env-proxy` mode. Startup logs show the proxy source and a credential-free
+address; request logs show only the target origin/path and network error type.
+
 When a `wechat_add_friend` task is found, the CLI displays the public task DTO
 and asks whether this installation should claim it. After confirmation it may
 start WeChat and copy the task's WeChat ID to the clipboard. Searching,

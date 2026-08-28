@@ -1,3 +1,5 @@
+import { agentFetch } from "./network/index.js";
+
 export type AgentInstance = {
   id: string;
   device_name: string;
@@ -36,10 +38,11 @@ export class BdAgentApiClient {
   constructor(
     private readonly baseUrl: string,
     private readonly accessToken: string,
+    private readonly fetcher: typeof globalThis.fetch = agentFetch,
   ) {}
 
   private async request<T extends object>(path: string, init?: RequestInit) {
-    const response = await fetch(`${this.baseUrl}${path}`, {
+    const response = await this.fetcher(`${this.baseUrl}${path}`, {
       ...init,
       headers: {
         Authorization: `Bearer ${this.accessToken}`,

@@ -1,5 +1,6 @@
 import type { LocalAgentConfig } from "../config.js";
 import { readRefreshToken, saveRefreshToken } from "./credential-manager.js";
+import { agentFetch } from "../network/index.js";
 
 type RefreshResponse = {
   access_token?: string;
@@ -8,7 +9,7 @@ type RefreshResponse = {
 
 export async function refreshAccessToken(local: LocalAgentConfig, apiBaseUrl: string) {
   return refreshAccessTokenWith(local, apiBaseUrl, {
-    fetch: globalThis.fetch,
+    fetch: agentFetch,
     readRefreshToken,
     saveRefreshToken,
   });

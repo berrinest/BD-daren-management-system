@@ -1,9 +1,15 @@
 import { BdAgentApiClient } from "./api-client.js";
 import { getRuntimeConfig, loadOrCreateLocalConfig } from "./config.js";
 import { runHeartbeatLoop } from "./heartbeat.js";
+import { initializeAgentNetwork } from "./network/index.js";
 import { runTaskPolling } from "./task-polling.js";
 
 async function main() {
+  const network = await initializeAgentNetwork();
+  if (network.delegated) {
+    process.exitCode = network.exitCode;
+    return;
+  }
   const local = await loadOrCreateLocalConfig();
   const runtime = await getRuntimeConfig(local);
   const client = new BdAgentApiClient(runtime.apiBaseUrl, runtime.accessToken);
