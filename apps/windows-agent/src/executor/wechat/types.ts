@@ -1,6 +1,6 @@
 export const WECHAT_EXECUTOR_ACTIONS = [
   "open_wechat",
-  "prepare_contact",
+  "copy_wechat_id",
   "search_contact",
   "open_profile",
   "wait_user_confirm",

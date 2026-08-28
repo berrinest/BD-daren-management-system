@@ -23,17 +23,40 @@ test("WeChat executor only launches the public client, copies contact, and logs 
 
   assert.equal(scripts.length, 2);
   assert.match(scripts[0], /weixin:\/\//);
+  assert.match(scripts[0], /BD_WECHAT_PATH/);
+  assert.match(scripts[0], /Tencent\\WeChat\\WeChat\.exe/);
+  assert.match(scripts[0], /Tencent\\Weixin\\Weixin\.exe/);
   assert.match(scripts[1], /Set-Clipboard/);
   assert.match(scripts[1], /wx''test/);
   assert.doesNotMatch(scripts.join("\n"), /SendKeys|mouse_event|SetCursorPos|SetForegroundWindow/i);
   assert.deepEqual(logs.map((entry) => entry.action), [
     "open_wechat",
-    "prepare_contact",
+    "copy_wechat_id",
     "search_contact",
     "open_profile",
     "wait_user_confirm",
   ]);
   assert.equal(logs.every((entry) => entry.success), true);
+});
+
+test("WeChat executor reports and logs the real failing step", async () => {
+  const logs = [];
+  const executor = new WechatAssistExecutor(
+    async () => { throw new Error("找不到微信客户端"); },
+    async (entry) => { logs.push(entry); },
+  );
+
+  await assert.rejects(
+    executor.prepare({ signal: new AbortController().signal, taskId: "task-3", wechat: "wx-test" }),
+    /找不到微信客户端/,
+  );
+  assert.deepEqual(logs[0], {
+    action: "open_wechat",
+    error: "找不到微信客户端",
+    success: false,
+    task_id: "task-3",
+    timestamp: logs[0].timestamp,
+  });
 });
 
 test("WeChat executor records a declined human confirmation as failure", async () => {

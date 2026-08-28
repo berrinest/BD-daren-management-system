@@ -31,12 +31,16 @@ export class WechatAssistExecutor implements WechatExecutor {
     action: WechatExecutorAction,
     run: () => Promise<void>,
   ) {
+    console.log(`[wechat executor] ${action}: start`);
     try {
       await run();
       await this.log(taskId, action, true);
+      console.log(`[wechat executor] ${action}: success`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "unknown executor error";
       await this.log(taskId, action, false, message);
+      console.error(`[wechat executor] ${action}: fail`);
+      console.error(`[wechat executor] ${action}: error: ${message}`);
       throw error;
     }
   }
@@ -48,11 +52,38 @@ export class WechatAssistExecutor implements WechatExecutor {
     await this.execute(taskId, "open_wechat", async () => {
       const explicitPath = this.wechatPath
         ? `$wechatPath = ${quotePowerShell(this.wechatPath)}\nif (-not (Test-Path -LiteralPath $wechatPath)) { throw 'BD_WECHAT_PATH does not exist' }\nStart-Process -FilePath $wechatPath`
-        : "$wechat = Get-Process -Name WeChat,Weixin,WeChatAppEx -ErrorAction SilentlyContinue | Select-Object -First 1\nif (-not $wechat) { Start-Process 'weixin://' }";
+        : `$opened = $false
+  $protocolError = $null
+  try {
+    Start-Process -FilePath 'weixin://' -ErrorAction Stop
+    $opened = $true
+  } catch {
+    $protocolError = $_.Exception.Message
+  }
+
+  if (-not $opened) {
+    $candidates = @()
+    foreach ($basePath in @($env:ProgramFiles, ${"${env:ProgramFiles(x86)}"}, $env:LOCALAPPDATA)) {
+      if ($basePath) {
+        $candidates += Join-Path $basePath 'Tencent\\WeChat\\WeChat.exe'
+        $candidates += Join-Path $basePath 'Tencent\\Weixin\\Weixin.exe'
+      }
+    }
+    $wechatPath = $candidates | Where-Object { Test-Path -LiteralPath $_ } | Select-Object -First 1
+    if ($wechatPath) {
+      Start-Process -FilePath $wechatPath -ErrorAction Stop
+      $opened = $true
+    }
+  }
+
+  if (-not $opened) {
+    throw "无法启动微信。weixin:// 失败：$protocolError；常见安装路径中也未找到微信。请设置 BD_WECHAT_PATH。"
+  }
+`;
       await this.run(explicitPath, signal);
     });
 
-    await this.execute(taskId, "prepare_contact", async () => {
+    await this.execute(taskId, "copy_wechat_id", async () => {
       await this.run(`Set-Clipboard -Value ${quotePowerShell(contact)}`, signal);
     });
   }
