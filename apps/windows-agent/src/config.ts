@@ -4,7 +4,10 @@ import { hostname } from "node:os";
 import { join } from "node:path";
 
 export type LocalAgentConfig = {
+  apiBaseUrl?: string;
   installationId: string;
+  supabasePublishableKey?: string;
+  supabaseUrl?: string;
 };
 
 export type RuntimeConfig = {
@@ -28,7 +31,14 @@ export async function loadOrCreateLocalConfig(): Promise<LocalAgentConfig> {
   try {
     const parsed = JSON.parse(await readFile(path, "utf8")) as Partial<LocalAgentConfig>;
     if (typeof parsed.installationId === "string" && /^[0-9a-f-]{36}$/i.test(parsed.installationId)) {
-      return { installationId: parsed.installationId };
+      return {
+        apiBaseUrl: typeof parsed.apiBaseUrl === "string" ? parsed.apiBaseUrl : undefined,
+        installationId: parsed.installationId,
+        supabasePublishableKey: typeof parsed.supabasePublishableKey === "string"
+          ? parsed.supabasePublishableKey
+          : undefined,
+        supabaseUrl: typeof parsed.supabaseUrl === "string" ? parsed.supabaseUrl : undefined,
+      };
     }
   } catch (error) {
     const code = error && typeof error === "object" && "code" in error ? error.code : null;
@@ -41,14 +51,31 @@ export async function loadOrCreateLocalConfig(): Promise<LocalAgentConfig> {
   return config;
 }
 
-export function getRuntimeConfig(): RuntimeConfig {
-  const apiBaseUrl = process.env.BD_WEB_URL?.trim().replace(/\/$/, "");
-  const accessToken = process.env.BD_AGENT_ACCESS_TOKEN?.trim();
+export async function saveLocalAuthConfig(input: {
+  apiBaseUrl: string;
+  supabasePublishableKey: string;
+  supabaseUrl: string;
+}) {
+  const current = await loadOrCreateLocalConfig();
+  const config: LocalAgentConfig = { ...current, ...input };
+  const directory = getAgentDataDirectory();
+  await mkdir(directory, { recursive: true });
+  await writeFile(join(directory, "agent.json"), `${JSON.stringify(config, null, 2)}\n`, {
+    encoding: "utf8",
+    mode: 0o600,
+  });
+  return config;
+}
+
+export async function getRuntimeConfig(local: LocalAgentConfig): Promise<RuntimeConfig> {
+  const apiBaseUrl = (process.env.BD_WEB_URL?.trim() || local.apiBaseUrl)?.replace(/\/$/, "");
+  let accessToken = process.env.BD_AGENT_ACCESS_TOKEN?.trim();
   if (!apiBaseUrl || !/^https?:\/\//i.test(apiBaseUrl)) {
     throw new Error("BD_WEB_URL must be an absolute http(s) URL");
   }
   if (!accessToken) {
-    throw new Error("BD_AGENT_ACCESS_TOKEN is required");
+    const { refreshAccessToken } = await import("./auth/session.js");
+    accessToken = await refreshAccessToken(local, apiBaseUrl);
   }
 
   return {

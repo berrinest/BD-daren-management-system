@@ -1,11 +1,14 @@
 import { login } from "./actions";
 
 type LoginPageProps = {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ callback?: string; error?: string; state?: string }>;
 };
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const { error } = await searchParams;
+  const { callback, error, state } = await searchParams;
+  const next = callback && state
+    ? `/agent/connect?${new URLSearchParams({ callback, state })}`
+    : null;
 
   return (
     <section className="w-full max-w-sm rounded-2xl border border-[#e7ebe8] bg-white p-8 shadow-sm">
@@ -32,6 +35,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
       ) : null}
 
       <form action={login} className="space-y-4">
+        {next ? <input name="next" type="hidden" value={next} /> : null}
         <label className="grid gap-2 text-sm font-medium text-[#35443e]">
           邮箱
           <input

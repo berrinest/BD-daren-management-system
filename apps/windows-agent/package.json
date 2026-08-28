@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "login": "tsc -p tsconfig.json && node dist/login.js",
     "start": "node dist/main.js",
     "test": "node --test tests/*.test.mjs",
     "test:desktop": "node dist/executor/manual-test.js",

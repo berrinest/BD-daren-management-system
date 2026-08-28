@@ -4,8 +4,8 @@ import { runHeartbeatLoop } from "./heartbeat.js";
 import { runTaskPolling } from "./task-polling.js";
 
 async function main() {
-  const runtime = getRuntimeConfig();
   const local = await loadOrCreateLocalConfig();
+  const runtime = await getRuntimeConfig(local);
   const client = new BdAgentApiClient(runtime.apiBaseUrl, runtime.accessToken);
   const controller = new AbortController();
 

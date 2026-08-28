@@ -10,23 +10,26 @@ types fixed test text, captures the primary screen, and closes that process.
 Required environment variables:
 
 - `BD_WEB_URL`: deployed BD Web origin, for example `https://example.vercel.app`
-- `BD_AGENT_ACCESS_TOKEN`: current user's Supabase access token
+- `BD_AGENT_ACCESS_TOKEN`: optional development override; normal use reads the
+  refresh token from Windows Credential Manager
 - `BD_AGENT_DEVICE_NAME`: optional display name; defaults to the Windows hostname
 - `BD_WECHAT_PATH`: optional absolute WeChat executable path when the public
   `weixin://` protocol is unavailable
 
-Build and start from the repository root:
+Bind the current Windows account once, then start from the repository root:
 
 ```powershell
 pnpm --filter @bd/windows-agent build
 $env:BD_WEB_URL = "https://your-bd-system.example"
-$env:BD_AGENT_ACCESS_TOKEN = "your-user-access-token"
+pnpm --filter @bd/windows-agent login
 pnpm --filter @bd/windows-agent start
 ```
 
 Press `Ctrl+C` to send a final paused heartbeat and exit gracefully. The local
 installation identifier is stored in `%LOCALAPPDATA%\BDTalentAgent\agent.json`.
-The access token is not written to this file.
+The refresh token is stored as a Generic Credential in Windows Credential
+Manager and is never written to this file or printed. The public Web/Supabase
+addresses are stored locally so later starts do not require environment setup.
 
 When a `wechat_add_friend` task is found, the CLI displays the public task DTO
 and asks whether this installation should claim it. After confirmation it may
