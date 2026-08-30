@@ -1,0 +1,5 @@
+.venv/
+artifacts/
+config*.json
+!config.example.json
+__pycache__/
