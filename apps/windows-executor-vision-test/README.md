@@ -50,4 +50,3 @@ Controlled single-test run (never sends):
 
 Artifacts are written to `artifacts/<run-id>/` and include `events.jsonl`,
 `summary.json`, and per-step PNG screenshots.
-

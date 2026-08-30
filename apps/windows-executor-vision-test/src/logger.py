@@ -21,4 +21,3 @@ class JsonLogger:
         with self.events_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(payload, ensure_ascii=False) + "\n")
         print(json.dumps(payload, ensure_ascii=False))
-

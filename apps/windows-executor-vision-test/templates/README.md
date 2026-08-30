@@ -6,4 +6,3 @@ template captured from an unrelated contact or state would create a false
 confidence signal.
 
 Templates must never include or target the final Send/Confirm button.
-
