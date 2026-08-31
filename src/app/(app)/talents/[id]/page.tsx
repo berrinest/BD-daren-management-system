@@ -8,7 +8,7 @@ import { CreateTaskForm } from "@/components/tasks/create-task-form";
 import { CreateWechatTaskForm } from "@/components/tasks/create-wechat-task-form";
 import { TaskActions } from "@/components/tasks/task-actions";
 import { CopyButton } from "@/components/ui/copy-button";
-import { getTalentPlatformLabel, getTalentPriorityLabel, getTalentStageLabel, getTaskTypeLabel } from "@/lib/constants";
+import { getTalentLevelLabel, getTalentPlatformLabel, getTalentPriorityLabel, getTalentStageLabel, getTaskTypeLabel, getWechatTaskDisplayStatus } from "@/lib/constants";
 import { formatDateTime } from "@/lib/formatters/date";
 import { createClient } from "@/lib/supabase/server";
 
@@ -36,11 +36,13 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
   const [
     { data: talent, error },
     { data: pendingTasks, error: tasksError },
+    { data: activeWechatTask },
     { data: followUpRecords, error: followUpsError },
     { data: originResource },
   ] = await Promise.all([
     supabase.from("talents").select("*").eq("id", id).eq("user_id", userId).is("archived_at", null).maybeSingle(),
     supabase.from("tasks").select("id, talent_id, task_type, due_at, notes").eq("talent_id", id).eq("user_id", userId).eq("status", "pending").order("due_at", { ascending: true }),
+    supabase.from("tasks").select("id, status, agent_execution_status").eq("talent_id", id).eq("user_id", userId).eq("task_type", "wechat_add_friend").in("status", ["pending", "in_progress"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("follow_up_records").select("id, method, notes, occurred_at, result, task_id").eq("talent_id", id).eq("user_id", userId).order("occurred_at", { ascending: false }),
     supabase.from("talent_resources").select("id, source, discovered_at").eq("converted_talent_id", id).eq("user_id", userId).eq("status", "converted").maybeSingle(),
   ]);
@@ -82,9 +84,13 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
     { copyValue: talent.platform_account, label: "平台账号", value: talent.platform_account || "未填写" },
     { copyValue: talent.wechat, label: "微信号", value: talent.wechat || "未填写" },
     { label: "粉丝数量", value: talent.follower_count?.toLocaleString("zh-CN") ?? "未填写" },
-    { label: "优先级", value: getTalentPriorityLabel(talent.priority) },
+    { label: "任务优先级", value: getTalentPriorityLabel(talent.priority) },
+    { label: "达人等级", value: getTalentLevelLabel(talent.talent_level) },
     { label: "当前阶段", value: getTalentStageLabel(talent.stage) },
   ];
+  const activeWechatTaskLabel = activeWechatTask
+    ? getWechatTaskDisplayStatus(activeWechatTask.status, activeWechatTask.agent_execution_status)
+    : undefined;
 
   return (
     <main className="p-5 md:p-8"><section className="mx-auto max-w-5xl">
@@ -140,6 +146,7 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
 
         {taskMessage.taskError ? <p className="mt-4 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700" role="alert">{taskMessage.taskError}</p> : null}
         {taskMessage.taskNotice === "created" ? <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">任务创建成功。</p> : null}
+        {taskMessage.taskNotice === "wechat-created" ? <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">任务已创建，等待 Windows Agent 执行。状态：待执行。</p> : null}
         {taskMessage.taskNotice === "completed" ? <p className="mt-4 rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-800" role="status">任务已完成，并已记入跟进时间轴。</p> : null}
 
         {tasksError ? <p className="mt-5 text-sm text-red-700">任务加载失败，请稍后重试。</p> : null}
@@ -161,8 +168,8 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
 
         <div className="mt-6 border-t border-[#edf0ee] pt-6">
           <h3 className="text-sm font-semibold text-[#35443e]">微信添加任务</h3>
-          <p className="mt-1 text-xs text-slate-500">Windows Agent 只负责打开微信和复制微信号，发送前仍需人工确认。</p>
-          <CreateWechatTaskForm talentId={talent.id} />
+          <p className="mt-1 text-xs text-slate-500">Windows Agent 将填写微信好友申请，但不会点击最终确定或发送。</p>
+          <CreateWechatTaskForm activeTaskLabel={activeWechatTaskLabel} talentId={talent.id} />
         </div>
 
         <div className="mt-6 border-t border-[#edf0ee] pt-6">

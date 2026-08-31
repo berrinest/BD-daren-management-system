@@ -24,9 +24,9 @@ export function TalentFilters({ category, priority, search }: TalentFiltersProps
         <option value="">全部赛道</option>
         {TALENT_CATEGORIES.map((value) => <option key={value} value={value}>{value}</option>)}
       </select>
-      <label className="sr-only" htmlFor="talent-priority">按优先级筛选</label>
+      <label className="sr-only" htmlFor="talent-priority">按任务优先级筛选</label>
       <select className="rounded-lg border border-[#dfe5e1] bg-white px-3 py-2 text-sm text-[#35443e]" defaultValue={priority} id="talent-priority" name="priority" onChange={(event) => event.currentTarget.form?.requestSubmit()}>
-        <option value="">全部优先级</option>
+        <option value="">全部任务优先级</option>
         {TALENT_PRIORITIES.map((value) => <option key={value} value={value}>{TALENT_PRIORITY_LABELS[value]}</option>)}
       </select>
       <div className="flex gap-2">

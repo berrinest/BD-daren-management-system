@@ -320,6 +320,7 @@ export type Database = {
           profile_url: string | null
           stage: string
           tags: string[]
+          talent_level: string
           updated_at: string
           user_id: string
           wechat: string | null
@@ -337,6 +338,7 @@ export type Database = {
           profile_url?: string | null
           stage?: string
           tags?: string[]
+          talent_level?: string
           updated_at?: string
           user_id: string
           wechat?: string | null
@@ -354,6 +356,7 @@ export type Database = {
           profile_url?: string | null
           stage?: string
           tags?: string[]
+          talent_level?: string
           updated_at?: string
           user_id?: string
           wechat?: string | null
@@ -368,18 +371,73 @@ export type Database = {
           },
         ]
       }
+      wechat_message_templates: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          greeting_message: string
+          id: string
+          remark_template: string
+          talent_level: string
+          template_name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          greeting_message: string
+          id?: string
+          remark_template: string
+          talent_level: string
+          template_name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          greeting_message?: string
+          id?: string
+          remark_template?: string
+          talent_level?: string
+          template_name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "wechat_message_templates_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           agent_current_action: string | null
+          agent_duration_ms: number | null
+          agent_error_code: string | null
           agent_execution_status: string | null
+          agent_evidence_ref: string | null
+          agent_finished_at: string | null
           agent_id: string | null
           agent_last_error: string | null
+          agent_result_payload: Json | null
+          agent_stop_reason: string | null
           cancelled_at: string | null
           completed_at: string | null
           created_at: string
           creator_id: string
           due_at: string
           execution_source: string
+          execution_expected_nickname: string | null
+          execution_greeting_message: string | null
+          execution_remark: string | null
+          execution_talent_level: string | null
+          execution_wechat_id: string | null
           id: string
           next_action: string | null
           next_action_at: string | null
@@ -396,15 +454,26 @@ export type Database = {
         }
         Insert: {
           agent_current_action?: string | null
+          agent_duration_ms?: number | null
+          agent_error_code?: string | null
           agent_execution_status?: string | null
+          agent_evidence_ref?: string | null
+          agent_finished_at?: string | null
           agent_id?: string | null
           agent_last_error?: string | null
+          agent_result_payload?: Json | null
+          agent_stop_reason?: string | null
           cancelled_at?: string | null
           completed_at?: string | null
           created_at?: string
           creator_id?: string
           due_at: string
           execution_source?: string
+          execution_expected_nickname?: string | null
+          execution_greeting_message?: string | null
+          execution_remark?: string | null
+          execution_talent_level?: string | null
+          execution_wechat_id?: string | null
           id?: string
           next_action?: string | null
           next_action_at?: string | null
@@ -421,15 +490,26 @@ export type Database = {
         }
         Update: {
           agent_current_action?: string | null
+          agent_duration_ms?: number | null
+          agent_error_code?: string | null
           agent_execution_status?: string | null
+          agent_evidence_ref?: string | null
+          agent_finished_at?: string | null
           agent_id?: string | null
           agent_last_error?: string | null
+          agent_result_payload?: Json | null
+          agent_stop_reason?: string | null
           cancelled_at?: string | null
           completed_at?: string | null
           created_at?: string
           creator_id?: string
           due_at?: string
           execution_source?: string
+          execution_expected_nickname?: string | null
+          execution_greeting_message?: string | null
+          execution_remark?: string | null
+          execution_talent_level?: string | null
+          execution_wechat_id?: string | null
           id?: string
           next_action?: string | null
           next_action_at?: string | null

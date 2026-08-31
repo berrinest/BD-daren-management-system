@@ -2,6 +2,8 @@ import Link from "next/link";
 
 import {
   TALENT_CATEGORIES,
+  TALENT_LEVELS,
+  TALENT_LEVEL_LABELS,
   TALENT_PLATFORMS,
   TALENT_PLATFORM_LABELS,
   TALENT_PRIORITIES,
@@ -109,7 +111,7 @@ export function TalentForm({
           />
         </label>
         <label className="grid gap-2 text-sm font-medium text-[#35443e]">
-          优先级
+          任务优先级
           <select
             className={inputClassName}
             defaultValue={initialValue?.priority ?? "normal"}
@@ -118,6 +120,21 @@ export function TalentForm({
             {TALENT_PRIORITIES.map((value) => (
               <option key={value} value={value}>
                 {TALENT_PRIORITY_LABELS[value]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="grid gap-2 text-sm font-medium text-[#35443e]">
+          达人等级 *
+          <select
+            className={inputClassName}
+            defaultValue={initialValue?.talent_level ?? "B"}
+            name="talent_level"
+            required
+          >
+            {TALENT_LEVELS.map((value) => (
+              <option key={value} value={value}>
+                {TALENT_LEVEL_LABELS[value]}
               </option>
             ))}
           </select>

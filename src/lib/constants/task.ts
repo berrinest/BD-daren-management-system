@@ -44,3 +44,22 @@ export function getTaskTypeLabel(value: string) {
 export function getTaskStatusLabel(value: string) {
   return TASK_STATUS_LABELS[value as keyof typeof TASK_STATUS_LABELS] ?? value;
 }
+
+export const AGENT_EXECUTION_STATUS_LABELS: Record<string, string> = {
+  claimed: "执行中",
+  running: "执行中",
+  ready_to_submit: "已填写申请，等待发送确认",
+  safe_stop: "安全停止",
+  timeout: "超时",
+  failed: "执行失败",
+};
+
+export function getWechatTaskDisplayStatus(
+  status: string,
+  executionStatus: string | null,
+) {
+  if (status === "pending") return "待执行";
+  return executionStatus
+    ? AGENT_EXECUTION_STATUS_LABELS[executionStatus] ?? "执行中"
+    : "执行中";
+}

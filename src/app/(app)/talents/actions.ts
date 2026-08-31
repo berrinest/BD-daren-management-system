@@ -21,6 +21,7 @@ function parseTalentFormData(formData: FormData) {
     profile_url: formData.get("profile_url"),
     wechat: formData.get("wechat"),
     follower_count: formData.get("follower_count"),
+    talent_level: formData.get("talent_level"),
     tags: formData.get("tags"),
     priority: formData.get("priority"),
     stage: formData.get("stage"),

@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   TALENT_CATEGORIES,
   LEGACY_TALENT_CATEGORIES,
+  TALENT_LEVELS,
   TALENT_PLATFORMS,
   TALENT_PRIORITIES,
   TALENT_STAGES,
@@ -42,6 +43,7 @@ export const createTalentSchema = z.object({
   profile_url: optionalUrl,
   wechat: optionalText(100),
   follower_count: optionalFollowerCount,
+  talent_level: z.enum(TALENT_LEVELS),
   tags: category,
   priority: z.enum(TALENT_PRIORITIES),
   stage: z.enum(TALENT_STAGES),

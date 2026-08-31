@@ -12,10 +12,15 @@ import { createClient } from "@/lib/supabase/server";
 import {
   bulkCreateResourceTasksSchema,
   createTaskSchema,
+  createWechatExecutionTaskSchema,
   executeBdTaskSchema,
   recoverInProgressTaskSchema,
   taskMutationSchema,
 } from "@/lib/validations";
+import {
+  isTalentLevel,
+  prepareWechatExecutionSnapshot,
+} from "@/lib/tasks/wechat-execution";
 
 const followUpResultSet = new Set<string>(FOLLOW_UP_RESULTS);
 const resourceResultSet = new Set<string>(RESOURCE_CONTACT_RESULTS);
@@ -206,8 +211,14 @@ export async function recoverInProgressTask(formData: FormData) {
     .update({
       agent_id: null,
       agent_current_action: null,
+      agent_duration_ms: null,
+      agent_error_code: null,
+      agent_evidence_ref: null,
       agent_execution_status: null,
+      agent_finished_at: null,
       agent_last_error: null,
+      agent_result_payload: null,
+      agent_stop_reason: null,
       execution_source: "manual",
       started_at: null,
       status: "pending",
@@ -283,6 +294,95 @@ export async function createTask(formData: FormData) {
   revalidatePath("/work");
   revalidatePath(`/talents/${input.data.talent_id}`);
   redirect(`/talents/${input.data.talent_id}?taskNotice=created`);
+}
+
+export async function createWechatExecutionTask(formData: FormData) {
+  const input = createWechatExecutionTaskSchema.safeParse({
+    talent_id: formData.get("talent_id"),
+    due_at: formData.get("due_at"),
+  });
+  const talentId = z.uuid().safeParse(formData.get("talent_id"));
+  if (!talentId.success) redirect("/talents");
+
+  const redirectError = (message: string): never => redirect(
+    `/talents/${talentId.data}?${new URLSearchParams({ taskError: message })}`,
+  );
+  if (!input.success) {
+    return redirectError(input.error.issues[0]?.message ?? "请检查微信任务信息");
+  }
+  const taskInput = input.data;
+
+  const supabase = await createClient();
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const userId = claimsData?.claims?.sub;
+  if (!userId) redirect("/login");
+
+  const { data: talent, error: talentError } = await supabase
+    .from("talents")
+    .select("id, nickname, wechat, talent_level, primary_platform, platform_account")
+    .eq("id", taskInput.talent_id)
+    .eq("user_id", userId)
+    .is("archived_at", null)
+    .maybeSingle();
+  if (talentError || !talent) return redirectError("达人不存在或已归档");
+  const ownedTalent = talent;
+  if (!isTalentLevel(ownedTalent.talent_level)) return redirectError("请先设置有效的达人等级");
+
+  const { data: template, error: templateError } = await supabase
+    .from("wechat_message_templates")
+    .select("enabled, greeting_message, remark_template")
+    .eq("user_id", userId)
+    .eq("talent_level", ownedTalent.talent_level)
+    .maybeSingle();
+  if (templateError) return redirectError("微信模板读取失败，请稍后重试");
+  const preview = prepareWechatExecutionSnapshot(
+    {
+      nickname: ownedTalent.nickname,
+      platform: ownedTalent.primary_platform,
+      platformAccount: ownedTalent.platform_account,
+      talentLevel: ownedTalent.talent_level,
+      wechat: ownedTalent.wechat,
+    },
+    template
+      ? {
+        enabled: template.enabled,
+        greetingMessage: template.greeting_message,
+        remarkTemplate: template.remark_template,
+      }
+      : null,
+  );
+  if (!preview.ok) return redirectError(preview.error);
+
+  const { data: activeTask, error: activeTaskError } = await supabase
+    .from("tasks")
+    .select("id")
+    .eq("user_id", userId)
+    .eq("talent_id", ownedTalent.id)
+    .eq("task_type", "wechat_add_friend")
+    .in("status", ["pending", "in_progress"])
+    .limit(1)
+    .maybeSingle();
+  if (activeTaskError) redirectError("任务状态检查失败，请稍后重试");
+  if (activeTask) redirectError("该达人已有待执行或执行中的微信任务");
+
+  const { error: insertError } = await supabase.from("tasks").insert({
+    creator_id: userId,
+    due_at: taskInput.due_at.toISOString(),
+    execution_source: "agent",
+    notes: "等待 Windows Agent 填写微信好友申请，最终发送仍需人工确认",
+    status: "pending",
+    talent_id: ownedTalent.id,
+    task_type: "wechat_add_friend",
+    user_id: userId,
+  });
+  if (insertError?.code === "23505") redirectError("该达人已有待执行或执行中的微信任务");
+  if (insertError) redirectError("微信任务创建失败，请检查模板配置后重试");
+
+  revalidatePath("/dashboard");
+  revalidatePath("/tasks");
+  revalidatePath("/work");
+  revalidatePath(`/talents/${ownedTalent.id}`);
+  redirect(`/talents/${ownedTalent.id}?taskNotice=wechat-created`);
 }
 
 export async function completeTask(formData: FormData) {

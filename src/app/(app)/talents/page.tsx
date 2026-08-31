@@ -5,6 +5,7 @@ import { TalentFilters } from "@/components/talents/talent-filters";
 import {
   TALENT_CATEGORIES,
   TALENT_PRIORITIES,
+  getTalentLevelLabel,
   getTalentPlatformLabel,
   getTalentPriorityLabel,
   getTalentStageLabel,
@@ -33,7 +34,7 @@ export default async function TalentsPage({ searchParams }: TalentsPageProps) {
 
   let query = supabase
     .from("talents")
-    .select("id, nickname, primary_platform, platform_account, wechat, tags, priority, stage, created_at")
+    .select("id, nickname, primary_platform, platform_account, wechat, tags, priority, talent_level, stage, created_at")
     .eq("user_id", userId)
     .is("archived_at", null)
     .order("priority", { ascending: true })
@@ -55,7 +56,7 @@ export default async function TalentsPage({ searchParams }: TalentsPageProps) {
           <div>
             <p className="text-xs font-semibold tracking-[0.18em] text-[#668074]">TALENTS</p>
             <h1 className="mt-2 text-2xl font-semibold text-[#26332e]">达人库</h1>
-            <p className="mt-2 text-sm text-slate-500">管理达人资料、优先级和当前合作阶段。</p>
+            <p className="mt-2 text-sm text-slate-500">管理达人资料、达人等级、任务优先级和当前合作阶段。</p>
           </div>
           <Link className="inline-flex items-center justify-center rounded-lg bg-[#31594b] px-4 py-2.5 text-sm font-semibold text-white hover:bg-[#284a3e]" href="/talents/new">
             添加达人
@@ -84,7 +85,7 @@ export default async function TalentsPage({ searchParams }: TalentsPageProps) {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[900px] border-collapse text-left text-sm">
                 <thead className="bg-[#f8faf8] text-xs font-semibold tracking-wide text-[#668074]">
-                  <tr><th className="px-5 py-3">达人</th><th className="px-4 py-3">平台</th><th className="px-4 py-3">微信</th><th className="px-4 py-3">赛道</th><th className="px-4 py-3">优先级</th><th className="px-4 py-3">阶段</th><th className="px-5 py-3 text-right">操作</th></tr>
+                  <tr><th className="px-5 py-3">达人</th><th className="px-4 py-3">平台</th><th className="px-4 py-3">微信</th><th className="px-4 py-3">赛道</th><th className="px-4 py-3">达人等级</th><th className="px-4 py-3">任务优先级</th><th className="px-4 py-3">阶段</th><th className="px-5 py-3 text-right">操作</th></tr>
                 </thead>
                 <tbody className="divide-y divide-[#edf0ee]">
                   {talents.map((talent) => (
@@ -93,6 +94,7 @@ export default async function TalentsPage({ searchParams }: TalentsPageProps) {
                       <td className="px-4 py-4 text-slate-600">{getTalentPlatformLabel(talent.primary_platform)}</td>
                       <td className="px-4 py-4 text-slate-600">{talent.wechat || "—"}</td>
                       <td className="px-4 py-4"><span className="rounded-full bg-[#eef4f1] px-2 py-1 text-xs text-[#48685b]">{talent.tags[0] || "未设置"}</span></td>
+                      <td className="px-4 py-4 text-slate-600">{getTalentLevelLabel(talent.talent_level)}</td>
                       <td className="px-4 py-4 text-slate-600">{getTalentPriorityLabel(talent.priority)}</td>
                       <td className="px-4 py-4 text-slate-600">{getTalentStageLabel(talent.stage)}</td>
                       <td className="px-5 py-4 text-right"><Link className="font-medium text-[#31594b] hover:underline" href={`/talents/${talent.id}`}>查看</Link></td>

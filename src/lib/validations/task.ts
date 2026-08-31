@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import {
   FOLLOW_UP_RESULTS,
+  FOLLOW_UP_TASK_TYPES,
   RESOURCE_CONTACT_RESULTS,
   TASK_TYPES,
 } from "@/lib/constants";
@@ -24,7 +25,7 @@ const optionalTaskExecutionDateTime = z.preprocess(
 
 export const createTaskSchema = z.object({
   talent_id: z.uuid(),
-  task_type: z.enum(TASK_TYPES),
+  task_type: z.enum(FOLLOW_UP_TASK_TYPES),
   due_at: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "请选择有效的到期时间")
@@ -35,6 +36,15 @@ export const createTaskSchema = z.object({
       typeof value === "string" && value.trim() === "" ? null : value,
     z.string().trim().max(2000).nullable().optional(),
   ),
+});
+
+export const createWechatExecutionTaskSchema = z.object({
+  talent_id: z.uuid(),
+  due_at: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, "请选择有效的执行时间")
+    .transform((value) => new Date(`${value}:00+08:00`))
+    .refine((value) => !Number.isNaN(value.getTime()), "请选择有效的执行时间"),
 });
 
 export const bulkCreateResourceTasksSchema = z.object({

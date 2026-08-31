@@ -4,3 +4,4 @@ export * from "./resource";
 export * from "./talent";
 export * from "./task";
 export * from "./work";
+export * from "./wechat-template";

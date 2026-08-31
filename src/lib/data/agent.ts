@@ -1,6 +1,10 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 import { getActiveAgentInstance } from "@/lib/data/agent-instances";
+import {
+  getWechatExecutionSnapshot,
+  type AgentWechatExecutionDto,
+} from "@/lib/data/agent-task-dto";
 import { getShanghaiDayRange } from "@/lib/formatters/date";
 import type { Database } from "@/types/database";
 
@@ -22,7 +26,15 @@ export type AgentTaskTargetDto = {
 export type AgentTaskDto = {
   created_at: string;
   due_at: string;
-  execution_status: "claimed" | "failed" | "running" | null;
+  execution: AgentWechatExecutionDto | null;
+  execution_status:
+    | "claimed"
+    | "failed"
+    | "ready_to_submit"
+    | "running"
+    | "safe_stop"
+    | "timeout"
+    | null;
   next_action: string | null;
   status: "in_progress" | "pending";
   target: AgentTaskTargetDto;
@@ -250,7 +262,7 @@ export async function getTodayAgentTasks(
   const { todayStart, tomorrowStart } = getShanghaiDayRange(now);
   let query = supabase
     .from("tasks")
-    .select("id, task_type, status, due_at, next_action, created_at, talent_id, resource_id, agent_execution_status, talents!tasks_talent_owner_fk(id, nickname, primary_platform, platform_account, wechat), talent_resources!tasks_resource_owner_fk(id, nickname, primary_platform, platform_account, wechat)" as never)
+    .select("id, task_type, status, due_at, next_action, created_at, talent_id, resource_id, agent_execution_status, execution_wechat_id, execution_expected_nickname, execution_talent_level, execution_greeting_message, execution_remark, talents!tasks_talent_owner_fk(id, nickname, primary_platform, platform_account, wechat), talent_resources!tasks_resource_owner_fk(id, nickname, primary_platform, platform_account, wechat)" as never)
     .eq("user_id", userId)
     .in("task_type", [...AGENT_SUPPORTED_TASK_TYPES])
     .in("status", ["pending", "in_progress"])
@@ -269,6 +281,11 @@ export async function getTodayAgentTasks(
     agent_execution_status: AgentTaskDto["execution_status"];
     created_at: string;
     due_at: string;
+    execution_expected_nickname: string | null;
+    execution_greeting_message: string | null;
+    execution_remark: string | null;
+    execution_talent_level: string | null;
+    execution_wechat_id: string | null;
     id: string;
     next_action: string | null;
     resource_id: string | null;
@@ -295,6 +312,7 @@ export async function getTodayAgentTasks(
       return [{
         created_at: task.created_at,
         due_at: task.due_at,
+        execution: getWechatExecutionSnapshot(task),
         execution_status: task.agent_execution_status,
         next_action: task.next_action,
         status: task.status as AgentTaskDto["status"],
@@ -315,6 +333,7 @@ export async function getTodayAgentTasks(
       return [{
         created_at: task.created_at,
         due_at: task.due_at,
+        execution: null,
         execution_status: task.agent_execution_status,
         next_action: task.next_action,
         status: task.status as AgentTaskDto["status"],
@@ -337,16 +356,31 @@ export async function getTodayAgentTasks(
   return { status: "ok", tasks };
 }
 
-export type AgentExecutionState = "failed" | "running";
+export type AgentExecutionState =
+  | "claimed"
+  | "failed"
+  | "ready_to_submit"
+  | "running"
+  | "safe_stop"
+  | "timeout";
+
+export type AgentExecutionStateInput = {
+  action: string | null;
+  durationMs: number | null;
+  error: string | null;
+  errorCode: string | null;
+  evidenceRef: string | null;
+  resultPayload: Record<string, unknown> | null;
+  state: AgentExecutionState;
+  stopReason: string | null;
+};
 
 export async function updateAgentTaskExecutionState(
   supabase: SupabaseClient<Database>,
   userId: string,
   taskId: string,
   agentId: string,
-  state: AgentExecutionState,
-  action: string | null,
-  error: string | null,
+  input: AgentExecutionStateInput,
 ) {
   const { data: agent, error: agentError } = await getActiveAgentInstance(
     supabase,
@@ -356,12 +390,40 @@ export async function updateAgentTaskExecutionState(
   if (agentError) throw new Error("Agent instance could not be checked");
   if (!agent) return { status: "invalid_agent" as const };
 
+  const terminal = ["ready_to_submit", "safe_stop", "timeout", "failed"].includes(input.state);
+  const startedAtResult = terminal
+    ? await supabase
+      .from("tasks")
+      .select("started_at")
+      .eq("id", taskId)
+      .eq("user_id", userId)
+      .eq("agent_id", agentId)
+      .eq("status", "in_progress")
+      .maybeSingle()
+    : { data: null, error: null };
+  if (startedAtResult.error) throw new Error("Agent execution timing could not be loaded");
+  const measuredDuration = startedAtResult.data?.started_at
+    ? Math.max(0, Date.now() - new Date(startedAtResult.data.started_at).getTime())
+    : 0;
+  const failedLegacyFallback = input.state === "failed";
   const result = await supabase
     .from("tasks")
     .update({
-      agent_current_action: action,
-      agent_execution_status: state,
-      agent_last_error: state === "failed" ? error : null,
+      agent_current_action: input.action,
+      agent_duration_ms: terminal ? input.durationMs ?? measuredDuration : null,
+      agent_error_code: terminal && input.state !== "ready_to_submit"
+        ? input.errorCode ?? (failedLegacyFallback ? "EXECUTOR_FAILED" : null)
+        : null,
+      agent_evidence_ref: terminal ? input.evidenceRef : null,
+      agent_execution_status: input.state,
+      agent_finished_at: terminal ? new Date().toISOString() : null,
+      agent_last_error: input.state === "failed" ? input.error : null,
+      agent_result_payload: terminal
+        ? input.resultPayload ?? (failedLegacyFallback ? { legacy: true } : null)
+        : null,
+      agent_stop_reason: terminal && input.state !== "ready_to_submit"
+        ? input.stopReason ?? (failedLegacyFallback ? "EXECUTOR_FAILED" : null)
+        : null,
     } as never)
     .eq("id", taskId)
     .eq("user_id", userId)
@@ -374,9 +436,9 @@ export async function updateAgentTaskExecutionState(
 
   return {
     state: {
-      execution_status: state,
-      current_action: action,
-      error: state === "failed" ? error : null,
+      execution_status: input.state,
+      current_action: input.action,
+      error: input.state === "failed" ? input.error : null,
       status: "in_progress" as const,
       task_id: taskId,
     },

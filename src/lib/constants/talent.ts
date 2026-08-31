@@ -24,6 +24,17 @@ export const TALENT_STAGE_LABELS: Record<(typeof TALENT_STAGES)[number], string>
 
 export const TALENT_PRIORITIES = ["high", "normal", "paused"] as const;
 
+export const TALENT_LEVELS = ["A", "B", "C"] as const;
+
+export const TALENT_LEVEL_LABELS: Record<
+  (typeof TALENT_LEVELS)[number],
+  string
+> = {
+  A: "A 类达人",
+  B: "B 类达人",
+  C: "C 类达人",
+};
+
 export const TALENT_PRIORITY_LABELS: Record<
   (typeof TALENT_PRIORITIES)[number],
   string
@@ -90,4 +101,8 @@ export function getTalentPriorityLabel(value: string) {
 
 export function getTalentPlatformLabel(value: string) {
   return TALENT_PLATFORM_LABELS[value as keyof typeof TALENT_PLATFORM_LABELS] ?? value;
+}
+
+export function getTalentLevelLabel(value: string) {
+  return TALENT_LEVEL_LABELS[value as keyof typeof TALENT_LEVEL_LABELS] ?? value;
 }

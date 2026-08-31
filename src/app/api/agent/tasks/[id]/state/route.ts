@@ -10,11 +10,24 @@ const paramsSchema = z.object({ id: z.uuid() });
 const bodySchema = z.object({
   action: z.string().trim().min(1).max(100).optional(),
   agent_id: z.uuid(),
+  duration_ms: z.number().int().nonnegative().optional(),
   error: z.string().trim().min(1).max(1000).optional(),
-  state: z.enum(["running", "failed"]),
+  error_code: z.string().trim().min(1).max(100).optional(),
+  evidence_ref: z.string().trim().min(1).max(200).optional(),
+  result_payload: z.record(z.string(), z.unknown()).optional(),
+  state: z.enum(["claimed", "running", "ready_to_submit", "safe_stop", "timeout", "failed"]),
+  stop_reason: z.string().trim().min(1).max(100).optional(),
 }).strict().superRefine((value, context) => {
   if (value.state === "failed" && !value.error) {
     context.addIssue({ code: "custom", message: "A failure reason is required", path: ["error"] });
+  }
+  if (["ready_to_submit", "safe_stop", "timeout"].includes(value.state)) {
+    if (value.duration_ms === undefined) context.addIssue({ code: "custom", message: "duration_ms is required", path: ["duration_ms"] });
+    if (!value.result_payload) context.addIssue({ code: "custom", message: "result_payload is required", path: ["result_payload"] });
+  }
+  if (["safe_stop", "timeout"].includes(value.state)) {
+    if (!value.stop_reason) context.addIssue({ code: "custom", message: "stop_reason is required", path: ["stop_reason"] });
+    if (!value.error_code) context.addIssue({ code: "custom", message: "error_code is required", path: ["error_code"] });
   }
 });
 const headers = { "Cache-Control": "private, no-store" };
@@ -50,9 +63,16 @@ export async function POST(
       auth.userId,
       params.data.id,
       input.data.agent_id,
-      input.data.state,
-      input.data.action ?? null,
-      input.data.error ?? null,
+      {
+        action: input.data.action ?? null,
+        durationMs: input.data.duration_ms ?? null,
+        error: input.data.error ?? null,
+        errorCode: input.data.error_code ?? null,
+        evidenceRef: input.data.evidence_ref ?? null,
+        resultPayload: input.data.result_payload ?? null,
+        state: input.data.state,
+        stopReason: input.data.stop_reason ?? null,
+      },
     );
     if (result.status === "invalid_agent") {
       return error("AGENT_NOT_ACTIVE", "Agent instance was not found or is not active", 409);

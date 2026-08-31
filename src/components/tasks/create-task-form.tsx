@@ -1,6 +1,6 @@
 import { createTask } from "@/app/(app)/tasks/actions";
 import { FormSubmitButton } from "@/components/ui/form-submit-button";
-import { TASK_TYPES, TASK_TYPE_LABELS } from "@/lib/constants";
+import { FOLLOW_UP_TASK_TYPES, TASK_TYPE_LABELS } from "@/lib/constants";
 import { toShanghaiTomorrowDateTimeLocalValue } from "@/lib/formatters/date";
 
 type CreateTaskFormProps = {
@@ -23,7 +23,7 @@ export function CreateTaskForm({ talentId }: CreateTaskFormProps) {
           defaultValue="follow_up"
           name="task_type"
         >
-          {TASK_TYPES.map((value) => (
+          {FOLLOW_UP_TASK_TYPES.map((value) => (
             <option key={value} value={value}>
               {TASK_TYPE_LABELS[value]}
             </option>
