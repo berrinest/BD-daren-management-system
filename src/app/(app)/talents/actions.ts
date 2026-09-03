@@ -23,7 +23,6 @@ function parseTalentFormData(formData: FormData) {
     follower_count: formData.get("follower_count"),
     talent_level: formData.get("talent_level"),
     tags: formData.get("tags"),
-    priority: formData.get("priority"),
     stage: formData.get("stage"),
     notes: formData.get("notes"),
   });

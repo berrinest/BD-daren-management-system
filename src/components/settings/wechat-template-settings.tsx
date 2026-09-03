@@ -34,6 +34,9 @@ export function WechatTemplateSettings({
       <p className="mt-2 text-sm text-slate-500">
         允许变量：{WECHAT_TEMPLATE_VARIABLES.join("、")}。修改模板只影响之后新创建的微信任务，已经创建的任务使用创建时保存的快照。
       </p>
+      <p className="mt-2 text-sm text-slate-500">
+        微信备注自动使用达人资料中的昵称，无需重复配置。
+      </p>
 
       <div className="mt-5 grid gap-5 lg:grid-cols-3">
         {TALENT_LEVELS.map((level) => {
@@ -65,10 +68,6 @@ export function WechatTemplateSettings({
                 <label className="grid gap-2 text-sm font-medium text-[#35443e]">
                   好友申请招呼语
                   <textarea className={`${inputClassName} min-h-32 resize-y`} defaultValue={template?.greeting_message ?? ""} maxLength={500} name="greeting_message" required />
-                </label>
-                <label className="grid gap-2 text-sm font-medium text-[#35443e]">
-                  微信备注模板
-                  <input className={inputClassName} defaultValue={template?.remark_template ?? ""} maxLength={100} name="remark_template" required />
                 </label>
                 <label className="flex items-center gap-2 text-sm font-medium text-[#35443e]">
                   <input className="size-4 accent-[#31594b]" defaultChecked={template?.enabled ?? false} name="enabled" type="checkbox" />

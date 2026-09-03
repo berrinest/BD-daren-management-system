@@ -8,7 +8,7 @@ import { CreateTaskForm } from "@/components/tasks/create-task-form";
 import { CreateWechatTaskForm } from "@/components/tasks/create-wechat-task-form";
 import { TaskActions } from "@/components/tasks/task-actions";
 import { CopyButton } from "@/components/ui/copy-button";
-import { getTalentLevelLabel, getTalentPlatformLabel, getTalentPriorityLabel, getTalentStageLabel, getTaskTypeLabel, getWechatTaskDisplayStatus } from "@/lib/constants";
+import { getTalentLevelLabel, getTalentPlatformLabel, getTalentStageLabel, getTaskTypeLabel, getWechatTaskDisplayStatus } from "@/lib/constants";
 import { formatDateTime } from "@/lib/formatters/date";
 import { createClient } from "@/lib/supabase/server";
 
@@ -84,7 +84,6 @@ export default async function TalentDetailPage({ params, searchParams }: TalentD
     { copyValue: talent.platform_account, label: "平台账号", value: talent.platform_account || "未填写" },
     { copyValue: talent.wechat, label: "微信号", value: talent.wechat || "未填写" },
     { label: "粉丝数量", value: talent.follower_count?.toLocaleString("zh-CN") ?? "未填写" },
-    { label: "任务优先级", value: getTalentPriorityLabel(talent.priority) },
     { label: "达人等级", value: getTalentLevelLabel(talent.talent_level) },
     { label: "当前阶段", value: getTalentStageLabel(talent.stage) },
   ];

@@ -21,12 +21,13 @@ export type DashboardWorkItem = {
   nickname: string;
   platform: string;
   platformAccount?: string | null;
-  priority: string;
+  priority?: string;
   profileUrl?: string | null;
   recentContact: RecentContact | null;
   resourceId?: string;
   state: string;
   talentId?: string;
+  talentLevel?: string;
   taskId?: string;
   timing: Timing;
   wechat?: string | null;
@@ -37,9 +38,9 @@ export type StaleTalentReminder = {
   lastActivityAt: string;
   nickname: string;
   platform: string;
-  priority: string;
   recentContact: RecentContact | null;
   stage: string;
+  talentLevel: string;
 };
 
 export type StaleResourceReminder = {
@@ -53,11 +54,18 @@ export type StaleResourceReminder = {
 
 const timingRank: Record<Timing, number> = { overdue: 0, today: 1, new: 2 };
 const priorityRank: Record<string, number> = { high: 0, normal: 1, paused: 2 };
+const talentLevelRank: Record<string, number> = { A: 0, B: 1, C: 2 };
+
+function workItemRank(item: DashboardWorkItem) {
+  return item.kind === "talent_task"
+    ? talentLevelRank[item.talentLevel ?? ""] ?? 3
+    : priorityRank[item.priority ?? ""] ?? 3;
+}
 
 function compareWorkItems(left: DashboardWorkItem, right: DashboardWorkItem) {
   const timingDifference = timingRank[left.timing] - timingRank[right.timing];
   if (timingDifference !== 0) return timingDifference;
-  const priorityDifference = (priorityRank[left.priority] ?? 3) - (priorityRank[right.priority] ?? 3);
+  const priorityDifference = workItemRank(left) - workItemRank(right);
   if (priorityDifference !== 0) return priorityDifference;
   const leftTime = left.dueAt ? new Date(left.dueAt).getTime() : Number.MAX_SAFE_INTEGER;
   const rightTime = right.dueAt ? new Date(right.dueAt).getTime() : Number.MAX_SAFE_INTEGER;
@@ -73,10 +81,10 @@ export async function getDashboardData() {
   const { todayStart, tomorrowStart } = getShanghaiDayRange();
   const inactivityCutoff = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
   const [tasksResult, dueResourcesResult, newResourcesResult, staleCandidatesResult, noPlanResourcesResult, staleResourcesResult] = await Promise.all([
-    supabase.from("tasks").select("id, talent_id, resource_id, task_type, due_at, talents!tasks_talent_owner_fk(id, nickname, primary_platform, platform_account, profile_url, follower_count, tags, priority, stage, archived_at, wechat), talent_resources!tasks_resource_owner_fk(id, nickname, primary_platform, platform_account, profile_url, follower_count, category, priority, processing_status, status, wechat)").eq("user_id", userId).eq("status", "pending").lt("due_at", tomorrowStart),
+    supabase.from("tasks").select("id, talent_id, resource_id, task_type, due_at, talents!tasks_talent_owner_fk(id, nickname, primary_platform, platform_account, profile_url, follower_count, tags, talent_level, stage, archived_at, wechat), talent_resources!tasks_resource_owner_fk(id, nickname, primary_platform, platform_account, profile_url, follower_count, category, priority, processing_status, status, wechat)").eq("user_id", userId).eq("status", "pending").lt("due_at", tomorrowStart),
     supabase.from("talent_resources").select("id, nickname, primary_platform, platform_account, profile_url, follower_count, category, priority, processing_status, next_action_at, wechat").eq("user_id", userId).eq("status", "new").neq("processing_status", "paused").neq("processing_status", "pending_add").not("next_action_at", "is", null).lt("next_action_at", tomorrowStart),
     supabase.from("talent_resources").select("id, nickname, primary_platform, platform_account, profile_url, follower_count, category, priority, processing_status, discovered_at, wechat").eq("user_id", userId).eq("status", "new").eq("processing_status", "pending_add").or(`next_action_at.is.null,next_action_at.lt.${tomorrowStart}`),
-    supabase.from("talents").select("id, nickname, primary_platform, priority, stage, created_at, updated_at").eq("user_id", userId).is("archived_at", null).neq("priority", "paused").not("stage", "in", "(completed,rejected)").lt("created_at", inactivityCutoff).lt("updated_at", inactivityCutoff).order("updated_at", { ascending: true }).limit(100),
+    supabase.from("talents").select("id, nickname, primary_platform, talent_level, stage, created_at, updated_at").eq("user_id", userId).is("archived_at", null).not("stage", "in", "(completed,rejected)").lt("created_at", inactivityCutoff).lt("updated_at", inactivityCutoff).order("updated_at", { ascending: true }).limit(100),
     supabase.from("talent_resources").select("id", { count: "exact", head: true }).eq("user_id", userId).eq("status", "new").neq("processing_status", "paused").is("next_action_at", null),
     supabase.from("talent_resources").select("id, nickname, primary_platform, priority, processing_status, discovered_at, resource_contact_records(occurred_at)").eq("user_id", userId).eq("status", "new").neq("processing_status", "paused").is("next_action_at", null).lt("discovered_at", inactivityCutoff).order("discovered_at", { ascending: true }).order("occurred_at", { ascending: false, referencedTable: "resource_contact_records" }).limit(1, { referencedTable: "resource_contact_records" }).limit(100),
   ]);
@@ -120,11 +128,11 @@ export async function getDashboardData() {
         nickname: task.talents.nickname,
         platform: task.talents.primary_platform,
         platformAccount: task.talents.platform_account,
-        priority: task.talents.priority,
         profileUrl: task.talents.profile_url,
         recentContact: talentContactMap.get(task.talent_id) ?? null,
         state: task.talents.stage,
         talentId: task.talent_id,
+        talentLevel: task.talents.talent_level,
         taskId: task.id,
         timing: task.due_at < todayStart ? "overdue" as const : "today" as const,
         wechat: task.talents.wechat,
@@ -208,9 +216,9 @@ export async function getDashboardData() {
         lastActivityAt: recentContact && recentContact.occurredAt > talent.updated_at ? recentContact.occurredAt : talent.updated_at,
         nickname: talent.nickname,
         platform: talent.primary_platform,
-        priority: talent.priority,
         recentContact,
         stage: talent.stage,
+        talentLevel: talent.talent_level,
       };
     })
     .sort((left, right) => left.lastActivityAt.localeCompare(right.lastActivityAt))

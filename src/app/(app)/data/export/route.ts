@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 
-import { TALENT_CATEGORIES, TALENT_PLATFORM_LABELS, TALENT_PLATFORMS, TALENT_PRIORITIES, TALENT_PRIORITY_LABELS, TALENT_STAGES, TALENT_STAGE_LABELS } from "@/lib/constants";
+import { TALENT_CATEGORIES, TALENT_LEVEL_LABELS, TALENT_LEVELS, TALENT_PLATFORM_LABELS, TALENT_PLATFORMS, TALENT_STAGES, TALENT_STAGE_LABELS } from "@/lib/constants";
 import { createClient } from "@/lib/supabase/server";
 import type { Tables } from "@/types/database";
 
@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   const params = new URL(request.url).searchParams;
   const platform = allowed(params.get("platform"), TALENT_PLATFORMS);
   const category = allowed(params.get("category"), TALENT_CATEGORIES);
-  const priority = allowed(params.get("priority"), TALENT_PRIORITIES);
+  const level = allowed(params.get("level"), TALENT_LEVELS);
   const stage = allowed(params.get("stage"), TALENT_STAGES);
   const archived = params.get("archived") === "all" || params.get("archived") === "archived" ? params.get("archived") : "active";
   const pageSize = 1000;
@@ -34,7 +34,7 @@ export async function GET(request: Request) {
       .range(offset, offset + pageSize - 1);
     if (platform) query = query.eq("primary_platform", platform);
     if (category) query = query.contains("tags", [category]);
-    if (priority) query = query.eq("priority", priority);
+    if (level) query = query.eq("talent_level", level);
     if (stage) query = query.eq("stage", stage);
     if (archived === "active") query = query.is("archived_at", null);
     if (archived === "archived") query = query.not("archived_at", "is", null);
@@ -53,13 +53,13 @@ export async function GET(request: Request) {
     "微信号": talent.wechat ?? "",
     "粉丝数量": talent.follower_count ?? "",
     "赛道": talent.tags.join("、"),
-    "优先级": TALENT_PRIORITY_LABELS[talent.priority as keyof typeof TALENT_PRIORITY_LABELS] ?? talent.priority,
+    "达人等级": TALENT_LEVEL_LABELS[talent.talent_level as keyof typeof TALENT_LEVEL_LABELS] ?? talent.talent_level,
     "当前阶段": TALENT_STAGE_LABELS[talent.stage as keyof typeof TALENT_STAGE_LABELS] ?? talent.stage,
     "备注": talent.notes ?? "",
     "创建时间": talent.created_at,
     "归档时间": talent.archived_at ?? "",
   }));
-  const sheet = XLSX.utils.json_to_sheet(rows, { header: ["达人昵称", "主要平台", "平台账号", "主页链接", "微信号", "粉丝数量", "赛道", "优先级", "当前阶段", "备注", "创建时间", "归档时间"] });
+  const sheet = XLSX.utils.json_to_sheet(rows, { header: ["达人昵称", "主要平台", "平台账号", "主页链接", "微信号", "粉丝数量", "赛道", "达人等级", "当前阶段", "备注", "创建时间", "归档时间"] });
   sheet["!cols"] = [{ wch: 18 }, { wch: 12 }, { wch: 20 }, { wch: 45 }, { wch: 20 }, { wch: 14 }, { wch: 16 }, { wch: 12 }, { wch: 14 }, { wch: 35 }, { wch: 24 }, { wch: 24 }];
   const workbook = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(workbook, sheet, "达人数据");

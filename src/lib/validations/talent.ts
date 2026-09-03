@@ -5,7 +5,6 @@ import {
   LEGACY_TALENT_CATEGORIES,
   TALENT_LEVELS,
   TALENT_PLATFORMS,
-  TALENT_PRIORITIES,
   TALENT_STAGES,
 } from "@/lib/constants";
 
@@ -45,7 +44,6 @@ export const createTalentSchema = z.object({
   follower_count: optionalFollowerCount,
   talent_level: z.enum(TALENT_LEVELS),
   tags: category,
-  priority: z.enum(TALENT_PRIORITIES),
   stage: z.enum(TALENT_STAGES),
   notes: optionalText(2000),
 });

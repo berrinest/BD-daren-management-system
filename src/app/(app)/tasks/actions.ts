@@ -330,7 +330,7 @@ export async function createWechatExecutionTask(formData: FormData) {
 
   const { data: template, error: templateError } = await supabase
     .from("wechat_message_templates")
-    .select("enabled, greeting_message, remark_template")
+    .select("enabled, greeting_message")
     .eq("user_id", userId)
     .eq("talent_level", ownedTalent.talent_level)
     .maybeSingle();
@@ -347,7 +347,6 @@ export async function createWechatExecutionTask(formData: FormData) {
       ? {
         enabled: template.enabled,
         greetingMessage: template.greeting_message,
-        remarkTemplate: template.remark_template,
       }
       : null,
   );

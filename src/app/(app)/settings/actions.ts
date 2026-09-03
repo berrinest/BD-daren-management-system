@@ -11,7 +11,6 @@ export async function saveWechatMessageTemplate(formData: FormData) {
     talent_level: formData.get("talent_level"),
     template_name: formData.get("template_name"),
     greeting_message: formData.get("greeting_message"),
-    remark_template: formData.get("remark_template"),
     enabled: formData.get("enabled"),
   });
   const rawLevel = formData.get("talent_level");
@@ -32,6 +31,7 @@ export async function saveWechatMessageTemplate(formData: FormData) {
   const { error } = await supabase.from("wechat_message_templates").upsert(
     {
       ...input.data,
+      remark_template: "{nickname}",
       user_id: userId,
     },
     { onConflict: "user_id,talent_level" },

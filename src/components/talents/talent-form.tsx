@@ -6,8 +6,6 @@ import {
   TALENT_LEVEL_LABELS,
   TALENT_PLATFORMS,
   TALENT_PLATFORM_LABELS,
-  TALENT_PRIORITIES,
-  TALENT_PRIORITY_LABELS,
   TALENT_STAGES,
   TALENT_STAGE_LABELS,
 } from "@/lib/constants";
@@ -109,20 +107,6 @@ export function TalentForm({
             step="1"
             type="number"
           />
-        </label>
-        <label className="grid gap-2 text-sm font-medium text-[#35443e]">
-          任务优先级
-          <select
-            className={inputClassName}
-            defaultValue={initialValue?.priority ?? "normal"}
-            name="priority"
-          >
-            {TALENT_PRIORITIES.map((value) => (
-              <option key={value} value={value}>
-                {TALENT_PRIORITY_LABELS[value]}
-              </option>
-            ))}
-          </select>
         </label>
         <label className="grid gap-2 text-sm font-medium text-[#35443e]">
           达人等级 *

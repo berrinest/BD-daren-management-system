@@ -55,7 +55,6 @@ test("rejects missing or disabled configuration before creating a WeChat task", 
   assert.deepEqual(prepareWechatExecutionSnapshot(talent, {
     enabled: false,
     greetingMessage: "你好{nickname}",
-    remarkTemplate: "{nickname}",
   }), {
     error: "请先配置并启用 A 类微信招呼语",
     ok: false,
@@ -68,7 +67,7 @@ test("rejects missing or disabled configuration before creating a WeChat task", 
 
 test("renders the immutable task preview from the selected level template", () => {
   const result = prepareWechatExecutionSnapshot({
-    nickname: "Pemi",
+    nickname: "  Pemi美妆  ",
     platform: "douyin",
     platformAccount: "pemi-account",
     talentLevel: "A",
@@ -76,14 +75,13 @@ test("renders the immutable task preview from the selected level template", () =
   }, {
     enabled: true,
     greetingMessage: "你好{nickname}，账号{account}",
-    remarkTemplate: "{platform}-{nickname}",
   });
   assert.equal(result.ok, true);
   if (result.ok) {
     assert.deepEqual(result.snapshot, {
-      expectedNickname: "Pemi",
-      greetingMessage: "你好Pemi，账号pemi-account",
-      remark: "douyin-Pemi",
+      expectedNickname: "Pemi美妆",
+      greetingMessage: "你好Pemi美妆，账号pemi-account",
+      remark: "Pemi美妆",
       talentLevel: "A",
       wechatId: "Pemi-pro",
     });

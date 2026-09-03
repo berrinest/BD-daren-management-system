@@ -39,7 +39,6 @@ type TalentInput = {
 type TemplateInput = {
   enabled: boolean;
   greetingMessage: string;
-  remarkTemplate: string;
 } | null;
 
 export type WechatExecutionSnapshot = {
@@ -78,12 +77,12 @@ export function prepareWechatExecutionSnapshot(
     platform: talent.platform,
   };
   const greetingMessage = renderWechatTemplate(template.greetingMessage, values).trim();
-  const remark = renderWechatTemplate(template.remarkTemplate, values).trim();
+  const remark = nickname;
   if (!greetingMessage || greetingMessage.length > 500) {
     return { error: "招呼语渲染后为空或超过 500 个字符", ok: false };
   }
   if (!remark || remark.length > 100) {
-    return { error: "微信备注渲染后为空或超过 100 个字符", ok: false };
+    return { error: "达人昵称超过微信备注允许的 100 个字符", ok: false };
   }
 
   return {
